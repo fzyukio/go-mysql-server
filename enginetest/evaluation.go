@@ -49,7 +49,7 @@ func RunQueryWithContext(t *testing.T, e QueryEngine, harness Harness, ctx *sql.
 	ctx = ctx.WithQuery(query)
 	_, iter, _, err := e.Query(ctx, query)
 	require.NoError(t, err, "error running query %s: %v", query, err)
-	_, err = sql.RowIterToRows(ctx, iter)
+	_, err = sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(t, err)
 	validateEngine(t, ctx, harness, e)
 }
@@ -366,7 +366,7 @@ func TestQueryWithContext(
 	sch, iter, _, err := e.QueryWithBindings(ctx, q, nil, bindings, qFlags)
 	require.NoError(err, "Unexpected error for query %s: %s", q, err)
 
-	rows, err := sql.RowIterToRows(ctx, iter)
+	rows, err := sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err, "Unexpected error for query %s: %s", q, err)
 
 	if expected != nil {
@@ -409,7 +409,7 @@ func TestQueryWithIndexCheck(t *testing.T, ctx *sql.Context, e QueryEngine, harn
 	sch, iter, _, err := e.QueryWithBindings(ctx, q, nil, bindings, nil)
 	require.NoError(err, "Unexpected error for query %s: %s", q, err)
 
-	rows, err := sql.RowIterToRows(ctx, iter)
+	rows, err := sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err, "Unexpected error for query %s: %s", q, err)
 
 	if expected != nil {
@@ -621,7 +621,7 @@ func runQueryPreparedWithCtx(t *testing.T, ctx *sql.Context, e QueryEngine, q st
 		return nil, nil, err
 	}
 
-	rows, err := sql.RowIterToRows(ctx, iter)
+	rows, err := sql.RowIterToRows(ctx, iter, 0)
 	return rows, sch, err
 }
 
@@ -917,7 +917,7 @@ func AssertErrWithBindings(t *testing.T, e QueryEngine, h Harness, query string,
 	ctx := NewContext(h)
 	_, iter, _, err := e.QueryWithBindings(ctx, query, nil, bindings, nil)
 	if err == nil {
-		_, err = sql.RowIterToRows(ctx, iter)
+		_, err = sql.RowIterToRows(ctx, iter, 0)
 	}
 	require.Error(t, err)
 	if expectedErrKind != nil {
@@ -943,7 +943,7 @@ func AssertErrWithCtx(t *testing.T, e QueryEngine, harness Harness, ctx *sql.Con
 	ctx = ctx.WithQuery(query)
 	_, iter, _, err := e.QueryWithBindings(ctx, query, nil, bindings, nil)
 	if err == nil {
-		_, err = sql.RowIterToRows(ctx, iter)
+		_, err = sql.RowIterToRows(ctx, iter, 0)
 	}
 	require.Error(t, err)
 	if expectedErrKind != nil {
@@ -1017,7 +1017,7 @@ func AssertWarningAndTestQuery(
 	sch, iter, _, err := e.Query(ctx, query)
 	require.NoError(err, "Unexpected error for query %s", query)
 
-	rows, err := sql.RowIterToRows(ctx, iter)
+	rows, err := sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err, "Unexpected error for query %s", query)
 
 	if !IsServerEngine(e) {

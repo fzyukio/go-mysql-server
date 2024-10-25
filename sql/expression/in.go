@@ -31,7 +31,7 @@ type InTuple struct {
 var _ Comparer = (*InTuple)(nil)
 var _ sql.CollationCoercible = (*InTuple)(nil)
 
-func (in *InTuple) Compare(ctx *sql.Context, row sql.Row) (int, error) {
+func (in *InTuple) Compare(ctx *sql.Context, row sql.LazyRow) (int, error) {
 	panic("Compare not implemented for InTuple")
 }
 
@@ -60,7 +60,7 @@ func NewInTuple(left sql.Expression, right sql.Expression) *InTuple {
 }
 
 // Eval implements the Expression interface.
-func (in *InTuple) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (in *InTuple) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	typ := in.Left().Type().Promote()
 	leftElems := types.NumColumns(typ)
 	originalLeft, err := in.Left().Eval(ctx, row)
@@ -222,7 +222,7 @@ func newInMap(ctx *sql.Context, right Tuple, lType sql.Type) (map[uint64]sql.Exp
 			hasNull = true
 			continue
 		}
-		i, err := el.Eval(ctx, sql.Row{})
+		i, err := el.Eval(ctx, nil)
 		if err != nil {
 			return nil, hasNull, err
 		}
@@ -304,7 +304,7 @@ func hashOfSimple(ctx *sql.Context, i interface{}, t sql.Type) (uint64, error) {
 }
 
 // Eval implements the Expression interface.
-func (hit *HashInTuple) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (hit *HashInTuple) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	leftElems := types.NumColumns(hit.in.Left().Type().Promote())
 
 	leftVal, err := hit.in.Left().Eval(ctx, row)
@@ -403,7 +403,7 @@ func (hit *HashInTuple) WithChildren(children ...sql.Expression) (sql.Expression
 	return &ret, err
 }
 
-func (hit *HashInTuple) Compare(ctx *sql.Context, row sql.Row) (int, error) {
+func (hit *HashInTuple) Compare(ctx *sql.Context, row sql.LazyRow) (int, error) {
 	return hit.in.Compare(ctx, row)
 }
 

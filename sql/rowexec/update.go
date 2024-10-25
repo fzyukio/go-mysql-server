@@ -31,13 +31,14 @@ type updateIter struct {
 	ignore    bool
 }
 
-func (u *updateIter) Next(ctx *sql.Context) (sql.Row, error) {
-	oldAndNewRow, err := u.childIter.Next(ctx)
+func (u *updateIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	oldAndNewRow := sql.NewSqlRow(0)
+	err := u.childIter.Next(ctx, oldAndNewRow)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	oldRow, newRow := oldAndNewRow[:len(oldAndNewRow)/2], oldAndNewRow[len(oldAndNewRow)/2:]
+	oldRow, newRow := sql.NewSqlRowFromRow(oldAndNewRow.SqlValues()[:oldAndNewRow.Count()/2]), sql.NewSqlRowFromRow(oldAndNewRow.SqlValues()[oldAndNewRow.Count()/2:])
 	if equals, err := oldRow.Equals(newRow, u.schema); err == nil {
 		if !equals {
 			// apply check constraints
@@ -48,34 +49,34 @@ func (u *updateIter) Next(ctx *sql.Context) (sql.Row, error) {
 
 				res, err := sql.EvaluateCondition(ctx, check.Expr, newRow)
 				if err != nil {
-					return nil, err
+					return err
 				}
 
 				if sql.IsFalse(res) {
-					return nil, u.ignoreOrError(ctx, newRow, sql.ErrCheckConstraintViolated.New(check.Name))
+					return u.ignoreOrError(ctx, newRow, sql.ErrCheckConstraintViolated.New(check.Name))
 				}
 			}
 
 			err := u.validateNullability(ctx, newRow, u.schema)
 			if err != nil {
-				return nil, u.ignoreOrError(ctx, newRow, err)
+				return u.ignoreOrError(ctx, newRow, err)
 			}
 
 			err = u.updater.Update(ctx, oldRow, newRow)
 			if err != nil {
-				return nil, u.ignoreOrError(ctx, newRow, err)
+				return u.ignoreOrError(ctx, newRow, err)
 			}
 		}
 	} else {
-		return nil, err
+		return err
 	}
 
-	return oldAndNewRow, nil
+	return nil
 }
 
 // Applies the update expressions given to the row given, returning the new resultant row. In the case that ignore is
 // provided and there is a type conversion error, this function sets the value to the zero value as per the MySQL standard.
-func applyUpdateExpressionsWithIgnore(ctx *sql.Context, updateExprs []sql.Expression, tableSchema sql.Schema, row sql.Row, ignore bool) (sql.Row, error) {
+func applyUpdateExpressionsWithIgnore(ctx *sql.Context, updateExprs []sql.Expression, tableSchema sql.Schema, row sql.LazyRow, ignore bool) (sql.LazyRow, error) {
 	var secondPass []int
 
 	for i, updateExpr := range updateExprs {
@@ -96,14 +97,15 @@ func applyUpdateExpressionsWithIgnore(ctx *sql.Context, updateExprs []sql.Expres
 			}
 
 			cpy := row.Copy()
-			cpy[wtce.OffendingIdx] = wtce.OffendingVal // Needed for strings
+			cpy.SetSqlValue(wtce.OffendingIdx, wtce.OffendingVal) // Needed for strings
 			val = convertDataAndWarn(ctx, tableSchema, cpy, wtce.OffendingIdx, wtce.Err)
 		}
 		var ok bool
-		row, ok = val.(sql.Row)
+		row_, ok := val.(sql.Row)
 		if !ok {
 			return nil, plan.ErrUpdateUnexpectedSetResult.New(val)
 		}
+		row = sql.NewSqlRowFromRow(row_)
 	}
 
 	for _, index := range secondPass {
@@ -113,22 +115,23 @@ func applyUpdateExpressionsWithIgnore(ctx *sql.Context, updateExprs []sql.Expres
 		}
 
 		var ok bool
-		row, ok = val.(sql.Row)
+		row_, ok := val.(sql.Row)
 		if !ok {
 			return nil, plan.ErrUpdateUnexpectedSetResult.New(val)
 		}
+		row = sql.NewSqlRowFromRow(row_)
 	}
 
 	return row, nil
 }
 
-func (u *updateIter) validateNullability(ctx *sql.Context, row sql.Row, schema sql.Schema) error {
-	for idx := 0; idx < len(row); idx++ {
+func (u *updateIter) validateNullability(ctx *sql.Context, row sql.LazyRow, schema sql.Schema) error {
+	for idx, val := range row.SqlValues() {
 		col := schema[idx]
-		if !col.Nullable && row[idx] == nil {
+		if !col.Nullable && val == nil {
 			// In the case of an IGNORE we set the nil value to a default and add a warning
 			if u.ignore {
-				row[idx] = col.Type.Zero()
+				row.SetSqlValue(idx, col.Type.Zero())
 				_ = warnOnIgnorableError(ctx, row, sql.ErrInsertIntoNonNullableProvidedNull.New(col.Name)) // will always return nil
 			} else {
 				return sql.ErrInsertIntoNonNullableProvidedNull.New(col.Name)
@@ -150,7 +153,7 @@ func (u *updateIter) Close(ctx *sql.Context) error {
 	return nil
 }
 
-func (u *updateIter) ignoreOrError(ctx *sql.Context, row sql.Row, err error) error {
+func (u *updateIter) ignoreOrError(ctx *sql.Context, row sql.LazyRow, err error) error {
 	if !u.ignore {
 		return err
 	}
@@ -197,14 +200,15 @@ type updateJoinIter struct {
 
 var _ sql.RowIter = (*updateJoinIter)(nil)
 
-func (u *updateJoinIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (u *updateJoinIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	for {
-		oldAndNewRow, err := u.updateSourceIter.Next(ctx)
+		oldAndNewRow := sql.NewSqlRow(0)
+		err := u.updateSourceIter.Next(ctx, oldAndNewRow)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		oldJoinRow, newJoinRow := oldAndNewRow[:len(oldAndNewRow)/2], oldAndNewRow[len(oldAndNewRow)/2:]
+		oldJoinRow, newJoinRow := oldAndNewRow.SqlValues()[:oldAndNewRow.Count()/2], oldAndNewRow.SqlValues()[oldAndNewRow.Count()/2:]
 
 		tableToOldRowMap := plan.SplitRowIntoTableRowMap(oldJoinRow, u.joinSchema)
 		tableToNewRowMap := plan.SplitRowIntoTableRowMap(newJoinRow, u.joinSchema)
@@ -214,9 +218,9 @@ func (u *updateJoinIter) Next(ctx *sql.Context) (sql.Row, error) {
 
 			// Handle the case of row being ignored due to it not being valid in the join row.
 			if isRightOrLeftJoin(u.joinNode) {
-				works, err := u.shouldUpdateDirectionalJoin(ctx, oldJoinRow, oldTableRow)
+				works, err := u.shouldUpdateDirectionalJoin(ctx, sql.NewSqlRowFromRow(oldJoinRow), oldTableRow)
 				if err != nil {
-					return nil, err
+					return err
 				}
 
 				if !works {
@@ -230,7 +234,7 @@ func (u *updateJoinIter) Next(ctx *sql.Context) (sql.Row, error) {
 			cache := u.getOrCreateCache(ctx, tableName)
 			hash, err := sql.HashOf(oldTableRow)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			_, err = cache.Get(hash)
@@ -242,7 +246,7 @@ func (u *updateJoinIter) Next(ctx *sql.Context) (sql.Row, error) {
 
 				continue
 			} else if err != nil {
-				return nil, err
+				return err
 			}
 
 			// If this row for the table has already been updated we rewrite the newJoinRow counterpart to ensure that this
@@ -250,13 +254,13 @@ func (u *updateJoinIter) Next(ctx *sql.Context) (sql.Row, error) {
 			tableToNewRowMap[tableName] = oldTableRow
 		}
 
-		newJoinRow = recreateRowFromMap(tableToNewRowMap, u.joinSchema)
-		equals, err := oldJoinRow.Equals(newJoinRow, u.joinSchema)
+		newJoinRow_ := recreateRowFromMap(tableToNewRowMap, u.joinSchema)
+		equals, err := sql.NewSqlRowFromRow(oldJoinRow).Equals(newJoinRow_, u.joinSchema)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if !equals {
-			return append(oldJoinRow, newJoinRow...), nil
+			return nil
 		}
 	}
 }
@@ -314,7 +318,7 @@ func isRightOrLeftJoin(node sql.Node) bool {
 // A table row should only be updated if 1) It fits the join conditions (the intersection of the join) 2) It fits only
 // the left or right side of the join (given the direction). A row of all nils that does not pass condition 1 must not
 // be part of the update operation. This is follows the logic as established in the joinIter.
-func (u *updateJoinIter) shouldUpdateDirectionalJoin(ctx *sql.Context, joinRow, tableRow sql.Row) (bool, error) {
+func (u *updateJoinIter) shouldUpdateDirectionalJoin(ctx *sql.Context, joinRow, tableRow sql.LazyRow) (bool, error) {
 	jn := toJoinNode(u.joinNode)
 	if jn == nil || !jn.JoinType().IsLeftOuter() {
 		return true, fmt.Errorf("expected left join")
@@ -329,7 +333,7 @@ func (u *updateJoinIter) shouldUpdateDirectionalJoin(ctx *sql.Context, joinRow, 
 		return true, nil
 	}
 
-	for _, v := range tableRow {
+	for _, v := range tableRow.SqlValues() {
 		if v != nil {
 			return true, nil
 		}
@@ -361,24 +365,24 @@ func (u *updateJoinIter) getOrCreateCache(ctx *sql.Context, tableName string) sq
 }
 
 // recreateRowFromMap takes a join schema and row map and recreates the original join row.
-func recreateRowFromMap(rowMap map[string]sql.Row, joinSchema sql.Schema) sql.Row {
+func recreateRowFromMap(rowMap map[string]sql.LazyRow, joinSchema sql.Schema) sql.LazyRow {
 	var ret sql.Row
 
 	if len(joinSchema) == 0 {
-		return ret
+		return sql.NewSqlRow(0)
 	}
 
 	currentTable := joinSchema[0].Source
-	ret = append(ret, rowMap[currentTable]...)
+	ret = append(ret, rowMap[currentTable].SqlValues()...)
 
 	for i := 1; i < len(joinSchema); i++ {
 		c := joinSchema[i]
 
 		if c.Source != currentTable {
-			ret = append(ret, rowMap[c.Source]...)
+			ret = append(ret, rowMap[c.Source].SqlValues()...)
 			currentTable = c.Source
 		}
 	}
 
-	return ret
+	return sql.NewSqlRowFromRow(ret)
 }

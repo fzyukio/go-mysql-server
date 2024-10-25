@@ -92,7 +92,7 @@ func (j JSONObject) IsNullable() bool {
 	return false
 }
 
-func (j JSONObject) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (j JSONObject) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	obj := make(map[string]interface{}, len(j.keyValPairs)/2)
 
 	var key string

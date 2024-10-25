@@ -57,7 +57,7 @@ func (dv *SingleDropView) IsReadOnly() bool {
 }
 
 // RowIter implements the Node interface. It always returns an empty iterator.
-func (dv *SingleDropView) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (dv *SingleDropView) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	return sql.RowsToRowIter(), nil
 }
 

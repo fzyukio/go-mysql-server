@@ -55,7 +55,7 @@ func (t *Trim) Children() []sql.Expression {
 }
 
 // Eval implements the Expression interface.
-func (t *Trim) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (t *Trim) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	// Evaluate pattern
 	pat, err := t.pat.Eval(ctx, row)
 	if err != nil {
@@ -192,7 +192,7 @@ func (t *LeftTrim) WithChildren(children ...sql.Expression) (sql.Expression, err
 	return NewLeftTrim(children[0]), nil
 }
 
-func (t *LeftTrim) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (t *LeftTrim) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	str, err := t.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -255,7 +255,7 @@ func (t *RightTrim) WithChildren(children ...sql.Expression) (sql.Expression, er
 	return NewRightTrim(children[0]), nil
 }
 
-func (t *RightTrim) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (t *RightTrim) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	str, err := t.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err

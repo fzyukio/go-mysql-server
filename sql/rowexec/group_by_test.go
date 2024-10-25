@@ -275,7 +275,7 @@ func BenchmarkGroupBy(b *testing.B) {
 				iter, err := DefaultBuilder.Build(ctx, node, nil)
 				require.NoError(err)
 
-				rows, err := sql.RowIterToRows(ctx, iter)
+				rows, err := sql.RowIterToRows(ctx, iter, 0)
 				require.NoError(err)
 				require.ElementsMatch(expected, rows)
 			}
@@ -334,5 +334,5 @@ func NodeToRows(ctx *sql.Context, n sql.Node) ([]sql.Row, error) {
 		return nil, err
 	}
 
-	return sql.RowIterToRows(ctx, i)
+	return sql.RowIterToRows(ctx, i, 0)
 }

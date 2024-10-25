@@ -111,7 +111,7 @@ func rowsToResultStrings(ctx *sql.Context, iter sql.RowIter) ([]string, error) {
 	}
 
 	for {
-		row, err := iter.Next(ctx)
+		err := iter.Next(ctx, nil)
 		if err == io.EOF {
 			return results, nil
 		} else if err != nil {

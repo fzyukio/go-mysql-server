@@ -37,9 +37,9 @@ type analyzeTableIter struct {
 
 var _ sql.RowIter = &analyzeTableIter{}
 
-func (itr *analyzeTableIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (itr *analyzeTableIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if itr.idx >= len(itr.tables) {
-		return nil, io.EOF
+		return io.EOF
 	}
 
 	t := itr.tables[itr.idx]
@@ -51,8 +51,12 @@ func (itr *analyzeTableIter) Next(ctx *sql.Context) (sql.Row, error) {
 		msgType = "Error"
 		msgText = err.Error()
 	}
+	row.SetSqlValue(0, t.Name())
+	row.SetSqlValue(1, "analyze")
+	row.SetSqlValue(2, msgType)
+	row.SetSqlValue(3, msgText)
 	itr.idx++
-	return sql.Row{t.Name(), "analyze", msgType, msgText}, nil
+	return nil
 }
 
 func (itr *analyzeTableIter) Close(ctx *sql.Context) error {
@@ -70,18 +74,18 @@ type updateHistogramIter struct {
 
 var _ sql.RowIter = &updateHistogramIter{}
 
-func (itr *updateHistogramIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (itr *updateHistogramIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if itr.done {
-		return nil, io.EOF
+		return io.EOF
 	}
 	defer func() {
 		itr.done = true
 	}()
 	err := itr.prov.SetStats(ctx, itr.stats)
 	if err != nil {
-		return sql.Row{itr.table, "histogram", "error", err.Error()}, nil
+		return nil
 	}
-	return sql.Row{itr.table, "histogram", "status", "OK"}, nil
+	return nil
 }
 
 func (itr *updateHistogramIter) Close(_ *sql.Context) error {
@@ -98,9 +102,9 @@ type dropHistogramIter struct {
 
 var _ sql.RowIter = &dropHistogramIter{}
 
-func (itr *dropHistogramIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (itr *dropHistogramIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if itr.done {
-		return nil, io.EOF
+		return io.EOF
 	}
 	defer func() {
 		itr.done = true
@@ -108,9 +112,9 @@ func (itr *dropHistogramIter) Next(ctx *sql.Context) (sql.Row, error) {
 	qual := sql.NewStatQualifier(itr.db, itr.table, "")
 	err := itr.prov.DropStats(ctx, qual, itr.columns)
 	if err != nil {
-		return sql.Row{itr.table, "histogram", "error", err.Error()}, nil
+		return nil
 	}
-	return sql.Row{itr.table, "histogram", "status", "OK"}, nil
+	return nil
 }
 
 func (itr *dropHistogramIter) Close(_ *sql.Context) error {
@@ -127,8 +131,8 @@ type blockIter struct {
 var _ plan.BlockRowIter = (*blockIter)(nil)
 
 // Next implements the sql.RowIter interface.
-func (i *blockIter) Next(ctx *sql.Context) (sql.Row, error) {
-	return i.internalIter.Next(ctx)
+func (i *blockIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	return i.internalIter.Next(ctx, nil)
 }
 
 // Close implements the sql.RowIter interface.
@@ -151,12 +155,12 @@ type prependRowIter struct {
 	childIter sql.RowIter
 }
 
-func (p *prependRowIter) Next(ctx *sql.Context) (sql.Row, error) {
-	next, err := p.childIter.Next(ctx)
+func (p *prependRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	err := p.childIter.Next(ctx, nil)
 	if err != nil {
-		return next, err
+		return err
 	}
-	return p.row.Append(next), nil
+	return nil
 }
 
 func (p *prependRowIter) Close(ctx *sql.Context) error {
@@ -170,8 +174,8 @@ type cachedResultsIter struct {
 	dispose sql.DisposeFunc
 }
 
-func (i *cachedResultsIter) Next(ctx *sql.Context) (sql.Row, error) {
-	r, err := i.iter.Next(ctx)
+func (i *cachedResultsIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	err := i.iter.Next(ctx, row)
 	if i.cache != nil {
 		if err != nil {
 			if err == io.EOF {
@@ -180,7 +184,7 @@ func (i *cachedResultsIter) Next(ctx *sql.Context) (sql.Row, error) {
 			}
 			i.cleanUp()
 		} else {
-			aerr := i.cache.Add(r)
+			aerr := i.cache.Add(row)
 			if aerr != nil {
 				i.cleanUp()
 				i.parent.Mutex.Lock()
@@ -189,7 +193,7 @@ func (i *cachedResultsIter) Next(ctx *sql.Context) (sql.Row, error) {
 			}
 		}
 	}
-	return r, err
+	return err
 }
 
 func (i *cachedResultsIter) saveResultsInGlobalCache() {
@@ -215,7 +219,7 @@ func (i *cachedResultsIter) Close(ctx *sql.Context) error {
 type hashLookupGeneratingIter struct {
 	n         *plan.HashLookup
 	childIter sql.RowIter
-	lookup    *map[interface{}][]sql.Row
+	lookup    *map[interface{}][]sql.LazyRow
 }
 
 func newHashLookupGeneratingIter(n *plan.HashLookup, chlidIter sql.RowIter) *hashLookupGeneratingIter {
@@ -223,29 +227,30 @@ func newHashLookupGeneratingIter(n *plan.HashLookup, chlidIter sql.RowIter) *has
 		n:         n,
 		childIter: chlidIter,
 	}
-	lookup := make(map[interface{}][]sql.Row)
+	lookup := make(map[interface{}][]sql.LazyRow)
 	h.lookup = &lookup
 	return h
 }
 
-func (h *hashLookupGeneratingIter) Next(ctx *sql.Context) (sql.Row, error) {
-	childRow, err := h.childIter.Next(ctx)
+func (h *hashLookupGeneratingIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	err := h.childIter.Next(ctx, row)
 	if err == io.EOF {
 		// We wait until we finish the child iter before caching the Lookup map.
 		// This is because some plans may not fully exhaust the iterator.
 		h.n.Lookup = h.lookup
-		return nil, io.EOF
+		return io.EOF
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// TODO: Maybe do not put nil stuff in here.
-	key, err := h.n.GetHashKey(ctx, h.n.RightEntryKey, childRow)
+	// TODO subselect only the hash columns for hashing
+	key, err := h.n.GetHashKey(ctx, h.n.RightEntryKey, row)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	(*(h.lookup))[key] = append((*(h.lookup))[key], childRow)
-	return childRow, nil
+	(*(h.lookup))[key] = append((*(h.lookup))[key], row)
+	return nil
 }
 
 func (h *hashLookupGeneratingIter) Close(c *sql.Context) error {
@@ -262,11 +267,11 @@ type declareCursorIter struct {
 var _ sql.RowIter = (*declareCursorIter)(nil)
 
 // Next implements the interface sql.RowIter.
-func (d *declareCursorIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (d *declareCursorIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if err := d.Pref.InitializeCursor(d.Name, d.Select); err != nil {
-		return nil, err
+		return err
 	}
-	return nil, io.EOF
+	return io.EOF
 }
 
 // Close implements the interface sql.RowIter.
@@ -315,7 +320,7 @@ type rowIterPartitionFunc func(ctx *sql.Context, partition sql.Partition) (sql.R
 // that row ProjectIter, passing every row it gets into |rows|. If it
 // receives an error at any point, it returns it. |iterPartitionRows|
 // stops iterating and returns |nil| when |partitions| is closed.
-func iterPartitionRows(ctx *sql.Context, getRowIter rowIterPartitionFunc, partitions <-chan sql.Partition, rows chan<- sql.Row) (rerr error) {
+func iterPartitionRows(ctx *sql.Context, getRowIter rowIterPartitionFunc, partitions <-chan sql.Partition, rows chan<- sql.LazyRow) (rerr error) {
 	defer func() {
 		if r := recover(); r != nil {
 			rerr = fmt.Errorf("panic in ExchangeIterPartitionRows: %v", r)
@@ -344,7 +349,7 @@ func iterPartitionRows(ctx *sql.Context, getRowIter rowIterPartitionFunc, partit
 	}
 }
 
-func sendAllRows(ctx *sql.Context, iter sql.RowIter, rows chan<- sql.Row) (rowCount int, rerr error) {
+func sendAllRows(ctx *sql.Context, iter sql.RowIter, rows chan<- sql.LazyRow) (rowCount int, rerr error) {
 	defer func() {
 		cerr := iter.Close(ctx)
 		if rerr == nil {
@@ -352,7 +357,9 @@ func sendAllRows(ctx *sql.Context, iter sql.RowIter, rows chan<- sql.Row) (rowCo
 		}
 	}()
 	for {
-		r, err := iter.Next(ctx)
+		// TODO appropriate row size
+		r := sql.NewSqlRow(0)
+		err := iter.Next(ctx, r)
 		if err == io.EOF {
 			return rowCount, nil
 		}
@@ -368,7 +375,7 @@ func sendAllRows(ctx *sql.Context, iter sql.RowIter, rows chan<- sql.Row) (rowCo
 	}
 }
 
-func (b *BaseBuilder) exchangeIterGen(e *plan.Exchange, row sql.Row) func(*sql.Context, sql.Partition) (sql.RowIter, error) {
+func (b *BaseBuilder) exchangeIterGen(e *plan.Exchange, row sql.LazyRow) func(*sql.Context, sql.Partition) (sql.RowIter, error) {
 	return func(ctx *sql.Context, partition sql.Partition) (sql.RowIter, error) {
 		node, _, err := transform.Node(e.Child, func(n sql.Node) (sql.Node, transform.TreeIdentity, error) {
 			if t, ok := n.(sql.Table); ok {
@@ -392,21 +399,22 @@ func (b *BaseBuilder) exchangeIterGen(e *plan.Exchange, row sql.Row) func(*sql.C
 type exchangeRowIter struct {
 	shutdownHook func()
 	waiter       func() error
-	rows         <-chan sql.Row
+	rows         <-chan sql.LazyRow
 	rows2        <-chan sql.Row2
 }
 
 var _ sql.RowIter = (*exchangeRowIter)(nil)
 
-func (i *exchangeRowIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *exchangeRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if i.rows == nil {
 		panic("Next called for a Next2 iterator")
 	}
 	r, ok := <-i.rows
 	if !ok {
-		return nil, i.waiter()
+		return i.waiter()
 	}
-	return r, nil
+	row.CopyRange(0, r)
+	return nil
 }
 
 func (i *exchangeRowIter) Close(ctx *sql.Context) error {
@@ -451,13 +459,13 @@ type releaseIter struct {
 	once    sync.Once
 }
 
-func (i *releaseIter) Next(ctx *sql.Context) (sql.Row, error) {
-	row, err := i.child.Next(ctx)
+func (i *releaseIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	err := i.child.Next(ctx, nil)
 	if err != nil {
 		_ = i.Close(ctx)
-		return nil, err
+		return err
 	}
-	return row, nil
+	return nil
 }
 
 func (i *releaseIter) Close(ctx *sql.Context) (err error) {
@@ -488,35 +496,35 @@ func newConcatIter(ctx *sql.Context, cur sql.RowIter, nextIter func() (sql.RowIt
 var _ sql.Disposable = (*concatIter)(nil)
 var _ sql.RowIter = (*concatIter)(nil)
 
-func (ci *concatIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (ci *concatIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	for {
-		res, err := ci.cur.Next(ctx)
+		err := ci.cur.Next(ctx, row)
 		if err == io.EOF {
 			if ci.nextIter == nil {
-				return nil, io.EOF
+				return io.EOF
 			}
 			err = ci.cur.Close(ctx)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			ci.cur, err = ci.nextIter()
 			ci.nextIter = nil
 			if err != nil {
-				return nil, err
+				return err
 			}
-			res, err = ci.cur.Next(ctx)
+			err = ci.cur.Next(ctx, nil)
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
-		hash, err := sql.HashOf(res)
+		hash, err := sql.HashOf(row)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if ci.nextIter != nil {
 			// On Left
 			if err := ci.inLeft.Put(hash, struct{}{}); err != nil {
-				return nil, err
+				return err
 			}
 		} else {
 			// On Right
@@ -524,7 +532,7 @@ func (ci *concatIter) Next(ctx *sql.Context) (sql.Row, error) {
 				continue
 			}
 		}
-		return res, err
+		return err
 	}
 }
 
@@ -546,12 +554,12 @@ type stripRowIter struct {
 	numCols int
 }
 
-func (sri *stripRowIter) Next(ctx *sql.Context) (sql.Row, error) {
-	r, err := sri.RowIter.Next(ctx)
+func (sri *stripRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	err := sri.RowIter.Next(ctx, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return r[sri.numCols:], nil
+	return nil
 }
 
 func (sri *stripRowIter) Close(ctx *sql.Context) error {

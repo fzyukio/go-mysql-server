@@ -28,7 +28,7 @@ type Aggregation interface {
 }
 
 // WindowBuffer is a type alias for a window materialization
-type WindowBuffer []Row
+type WindowBuffer []LazyRow
 
 // WindowInterval is a WindowBuffer index range, where [Start] is inclusive, and [End] is exclusive
 type WindowInterval struct {
@@ -125,7 +125,7 @@ type AggregationBuffer interface {
 	// Eval the given buffer.
 	Eval(*Context) (interface{}, error)
 	// Update the given buffer with the given row.
-	Update(ctx *Context, row Row) error
+	Update(ctx *Context, row LazyRow) error
 }
 
 // WindowAggregation implements a window aggregation expression. A WindowAggregation is similar to an Aggregation,

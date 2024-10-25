@@ -82,7 +82,7 @@ func (s TableFunc) Children() []sql.Node {
 	return []sql.Node{}
 }
 
-func (s TableFunc) RowIter(_ *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (s TableFunc) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	rowIter := &TableFunctionRowIter{val: s.value}
 	return rowIter, nil
 }
@@ -136,13 +136,13 @@ type TableFunctionRowIter struct {
 	done bool
 }
 
-func (i *TableFunctionRowIter) Next(_ *sql.Context) (sql.Row, error) {
+func (i *TableFunctionRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if i.done {
-		return nil, io.EOF
+		return io.EOF
 	}
-	ret := sql.Row{i.val}
+	row.SetSqlValue(0, i.val)
 	i.done = true
-	return ret, nil
+	return nil
 }
 
 func (i *TableFunctionRowIter) Close(_ *sql.Context) error {

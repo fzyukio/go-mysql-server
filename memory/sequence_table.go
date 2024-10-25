@@ -92,7 +92,7 @@ func (s IntSequenceTable) Children() []sql.Node {
 	return []sql.Node{}
 }
 
-func (s IntSequenceTable) RowIter(_ *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (s IntSequenceTable) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	rowIter := &SequenceTableFnRowIter{i: 0, n: s.Len}
 	return rowIter, nil
 }
@@ -146,13 +146,13 @@ type SequenceTableFnRowIter struct {
 	i int64
 }
 
-func (i *SequenceTableFnRowIter) Next(_ *sql.Context) (sql.Row, error) {
+func (i *SequenceTableFnRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if i.i >= i.n {
-		return nil, io.EOF
+		return io.EOF
 	}
-	ret := sql.Row{i.i}
+	row.SetSqlValue(0, i.i)
 	i.i++
-	return ret, nil
+	return nil
 }
 
 func (i *SequenceTableFnRowIter) Close(_ *sql.Context) error {

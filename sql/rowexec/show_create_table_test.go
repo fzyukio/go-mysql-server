@@ -49,7 +49,7 @@ func TestShowCreateTable(t *testing.T) {
 
 	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil)
 
-	row, err := rowIter.Next(ctx)
+	err := rowIter.Next(ctx, nil)
 
 	require.NoError(err)
 
@@ -71,7 +71,7 @@ func TestShowCreateTable(t *testing.T) {
 	ctx = sql.NewEmptyContext()
 	rowIter, _ = DefaultBuilder.Build(ctx, showCreateTable, nil)
 
-	_, err = rowIter.Next(ctx)
+	err = rowIter.Next(ctx, nil)
 	require.Error(err)
 	require.True(ErrNotView.Is(err), "wrong error kind")
 }
@@ -100,7 +100,7 @@ func TestShowCreateTableWithNoPrimaryKey(t *testing.T) {
 
 	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil)
 
-	row, err := rowIter.Next(ctx)
+	err := rowIter.Next(ctx, nil)
 
 	require.NoError(err)
 
@@ -141,7 +141,7 @@ func TestShowCreateTableWithPrimaryKey(t *testing.T) {
 
 	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil)
 
-	row, err := rowIter.Next(ctx)
+	err := rowIter.Next(ctx, nil)
 
 	require.NoError(err)
 
@@ -249,7 +249,7 @@ func TestShowCreateTableWithIndexAndForeignKeysAndChecks(t *testing.T) {
 
 	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil)
 
-	row, err := rowIter.Next(ctx)
+	err := rowIter.Next(ctx, nil)
 
 	require.NoError(err)
 
@@ -295,7 +295,7 @@ func TestShowCreateView(t *testing.T) {
 
 	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil)
 
-	row, err := rowIter.Next(ctx)
+	err := rowIter.Next(ctx, nil)
 
 	require.Nil(err)
 

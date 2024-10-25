@@ -83,7 +83,7 @@ func (a *unaryAggBase) CollationCoercibility(ctx *sql.Context) (collation sql.Co
 	return sql.GetCoercibility(ctx, a.Child)
 }
 
-func (a *unaryAggBase) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (a *unaryAggBase) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return nil, ErrEvalUnsupportedOnAggregation.New(a.FunctionName())
 }
 

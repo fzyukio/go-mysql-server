@@ -70,7 +70,7 @@ func (a *CountDistinct) WithId(id sql.ColumnId) sql.IdExpression {
 }
 
 // Eval implements the Expression interface.
-func (a *CountDistinct) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (a *CountDistinct) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return nil, ErrEvalUnsupportedOnAggregation.New("CountDistinct")
 }
 

@@ -130,7 +130,7 @@ func (r *RegexpLike) compile(ctx *sql.Context) {
 }
 
 // Eval implements the sql.Expression interface.
-func (r *RegexpLike) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (r *RegexpLike) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	span, ctx := ctx.Span("function.RegexpLike")
 	defer span.End()
 
@@ -188,7 +188,7 @@ func (r *RegexpLike) Close(ctx *sql.Context) error {
 	return nil
 }
 
-func compileRegex(ctx *sql.Context, pattern, text, flags sql.Expression, funcName string, row sql.Row) (regex.Regex, error) {
+func compileRegex(ctx *sql.Context, pattern, text, flags sql.Expression, funcName string, row sql.LazyRow) (regex.Regex, error) {
 	patternVal, err := pattern.Eval(ctx, row)
 	if err != nil {
 		return nil, err

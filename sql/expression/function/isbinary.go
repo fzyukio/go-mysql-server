@@ -47,10 +47,7 @@ func (ib *IsBinary) Description() string {
 }
 
 // Eval implements the Expression interface.
-func (ib *IsBinary) Eval(
-	ctx *sql.Context,
-	row sql.Row,
-) (interface{}, error) {
+func (ib *IsBinary) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	v, err := ib.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err

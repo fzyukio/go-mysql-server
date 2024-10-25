@@ -99,23 +99,23 @@ type offsetIter struct {
 	childIter sql.RowIter
 }
 
-func (i *offsetIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *offsetIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if i.skip > 0 {
 		for i.skip > 0 {
-			_, err := i.childIter.Next(ctx)
+			err := i.childIter.Next(ctx, nil)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			i.skip--
 		}
 	}
 
-	row, err := i.childIter.Next(ctx)
+	err := i.childIter.Next(ctx, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return row, nil
+	return nil
 }
 
 func (i *offsetIter) Close(ctx *sql.Context) error {
@@ -130,12 +130,12 @@ type ProjectIter struct {
 	childIter sql.RowIter
 }
 
-func (i *ProjectIter) Next(ctx *sql.Context) (sql.Row, error) {
-	childRow, err := i.childIter.Next(ctx)
+func (i *ProjectIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	err := i.childIter.Next(ctx, row)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return ProjectRow(ctx, i.projs, childRow)
+	return ProjectRow(ctx, i.projs, row, 0)
 }
 
 func (i *ProjectIter) Close(ctx *sql.Context) error {
@@ -155,12 +155,7 @@ func (i *ProjectIter) GetChildIter() sql.RowIter {
 }
 
 // ProjectRow evaluates a set of projections.
-func ProjectRow(
-	ctx *sql.Context,
-	projections []sql.Expression,
-	row sql.Row,
-) (sql.Row, error) {
-	var fields = make(sql.Row, len(projections))
+func ProjectRow(ctx *sql.Context, projections []sql.Expression, row sql.LazyRow, start int) error {
 	var secondPass []int
 	for i, expr := range projections {
 		// Default values that are expressions may reference other fields, thus they must evaluate after all other exprs.
@@ -174,20 +169,20 @@ func ProjectRow(
 		}
 		field, fErr := expr.Eval(ctx, row)
 		if fErr != nil {
-			return nil, fErr
+			return fErr
 		}
 		field = normalizeNegativeZeros(field)
-		fields[i] = field
+		row.SetSqlValue(i, field)
 	}
 	for _, index := range secondPass {
-		field, err := projections[index].Eval(ctx, fields)
+		field, err := projections[index].Eval(ctx, row)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		field = normalizeNegativeZeros(field)
-		fields[index] = field
+		row.SetSqlValue(index+start, field)
 	}
-	return fields, nil
+	return nil
 }
 
 func defaultValFromProjectExpr(e sql.Expression) (*sql.ColumnDefaultValue, bool) {
@@ -228,7 +223,7 @@ func normalizeNegativeZeros(val interface{}) interface{} {
 	return val
 }
 
-func setUserVar(ctx *sql.Context, userVar *expression.UserVar, right sql.Expression, row sql.Row) error {
+func setUserVar(ctx *sql.Context, userVar *expression.UserVar, right sql.Expression, row sql.LazyRow) error {
 	val, err := right.Eval(ctx, row)
 	if err != nil {
 		return err
@@ -242,7 +237,7 @@ func setUserVar(ctx *sql.Context, userVar *expression.UserVar, right sql.Express
 	return nil
 }
 
-func setSystemVar(ctx *sql.Context, sysVar *expression.SystemVar, right sql.Expression, row sql.Row) error {
+func setSystemVar(ctx *sql.Context, sysVar *expression.SystemVar, right sql.Expression, row sql.LazyRow) error {
 	val, err := right.Eval(ctx, row)
 	if err != nil {
 		return err
@@ -320,42 +315,43 @@ func setSystemVar(ctx *sql.Context, sysVar *expression.SystemVar, right sql.Expr
 }
 
 // Applies the update expressions given to the row given, returning the new resultant row.
-func applyUpdateExpressions(ctx *sql.Context, updateExprs []sql.Expression, row sql.Row) (sql.Row, error) {
+func applyUpdateExpressions(ctx *sql.Context, updateExprs []sql.Expression, row sql.LazyRow) error {
 	var ok bool
 	prev := row
 	for _, updateExpr := range updateExprs {
+		// TODO fix
 		val, err := updateExpr.Eval(ctx, prev)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		prev, ok = val.(sql.Row)
+		prev, ok = val.(sql.LazyRow)
 		if !ok {
-			return nil, plan.ErrUpdateUnexpectedSetResult.New(val)
+			return plan.ErrUpdateUnexpectedSetResult.New(val)
 		}
 	}
-	return prev, nil
+	return nil
 }
 
 // declareVariablesIter is the sql.RowIter of *DeclareVariables.
 type declareVariablesIter struct {
 	*plan.DeclareVariables
-	row sql.Row
+	row sql.LazyRow
 }
 
 var _ sql.RowIter = (*declareVariablesIter)(nil)
 
 // Next implements the interface sql.RowIter.
-func (d *declareVariablesIter) Next(ctx *sql.Context) (sql.Row, error) {
-	defaultVal, err := d.DefaultVal.Eval(ctx, d.row)
+func (d *declareVariablesIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	defaultVal, err := d.DefaultVal.Eval(ctx, row)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, varName := range d.Names {
 		if err := d.Pref.InitializeVariable(varName, d.Type, defaultVal); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return nil, io.EOF
+	return io.EOF
 }
 
 // Close implements the interface sql.RowIter.
@@ -371,11 +367,11 @@ type declareHandlerIter struct {
 var _ sql.RowIter = (*declareHandlerIter)(nil)
 
 // Next implements the interface sql.RowIter.
-func (d *declareHandlerIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (d *declareHandlerIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if err := d.Pref.InitializeHandler(d.Statement, d.Action, d.Condition); err != nil {
-		return nil, err
+		return err
 	}
-	return nil, io.EOF
+	return io.EOF
 }
 
 // Close implements the interface sql.RowIter.
@@ -398,14 +394,14 @@ type recursiveCteIter struct {
 	// true if UNION, false if UNION ALL
 	deduplicate bool
 	// parent iter initialization state
-	row sql.Row
+	row sql.LazyRow
 
 	// active iterator, either [init].RowIter or [rec].RowIter
 	iter sql.RowIter
 	// number of recursive iterations finished
 	cycle int
 	// buffer to collect intermediate results for next recursion
-	temp []sql.Row
+	temp []sql.LazyRow
 	// duplicate lookup if [deduplicated] set
 	cache sql.KeyValueCache
 	b     *BaseBuilder
@@ -414,7 +410,7 @@ type recursiveCteIter struct {
 var _ sql.RowIter = (*recursiveCteIter)(nil)
 
 // Next implements sql.RowIter
-func (r *recursiveCteIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (r *recursiveCteIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if r.iter == nil {
 		// start with [Init].RowIter
 		var err error
@@ -425,23 +421,22 @@ func (r *recursiveCteIter) Next(ctx *sql.Context) (sql.Row, error) {
 		r.iter, err = r.b.buildNodeExec(ctx, r.init, r.row)
 
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	var row sql.Row
 	for {
 		var err error
-		row, err = r.iter.Next(ctx)
+		err = r.iter.Next(ctx, row)
 		if errors.Is(err, io.EOF) && len(r.temp) > 0 {
 			// reset [Rec].RowIter
 			err = r.resetIter(ctx)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			continue
 		} else if err != nil {
-			return nil, err
+			return err
 		}
 
 		var key uint64
@@ -454,15 +449,15 @@ func (r *recursiveCteIter) Next(ctx *sql.Context) (sql.Row, error) {
 		}
 		r.store(row, key)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		break
 	}
-	return row, nil
+	return nil
 }
 
 // store saves a row to the [temp] buffer, and hashes if [deduplicated] = true
-func (r *recursiveCteIter) store(row sql.Row, key uint64) {
+func (r *recursiveCteIter) store(row sql.LazyRow, key uint64) {
 	if r.deduplicate {
 		r.cache.Put(key, struct{}{})
 	}
@@ -482,7 +477,7 @@ func (r *recursiveCteIter) resetIter(ctx *sql.Context) error {
 
 	if r.working != nil {
 		r.working.Buf = r.temp
-		r.temp = make([]sql.Row, 0)
+		r.temp = make([]sql.LazyRow, 0)
 	}
 
 	err := r.iter.Close(ctx)

@@ -34,7 +34,7 @@ func compEval(
 	returnType sql.Type,
 	args []sql.Expression,
 	ctx *sql.Context,
-	row sql.Row,
+	row sql.LazyRow,
 	cmp compareFn,
 ) (interface{}, error) {
 
@@ -306,7 +306,7 @@ func lessThan(a, b interface{}) bool {
 }
 
 // Eval implements the Expression interface.
-func (f *Greatest) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *Greatest) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return compEval(f.returnType, f.Args, ctx, row, greaterThan)
 }
 
@@ -386,6 +386,6 @@ func (f *Least) Resolved() bool {
 func (f *Least) Children() []sql.Expression { return f.Args }
 
 // Eval implements the Expression interface.
-func (f *Least) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *Least) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return compEval(f.returnType, f.Args, ctx, row, lessThan)
 }

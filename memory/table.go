@@ -465,12 +465,11 @@ func newIndexScanRowIter(
 	return iter
 }
 
-func (i *indexScanRowIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *indexScanRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if i.i >= len(i.indexRows) || i.i < 0 {
-		return nil, io.EOF
+		return io.EOF
 	}
 
-	var row sql.Row
 	for ; i.i < len(i.indexRows) && i.i >= 0; i.incrementFunc() {
 		idxRow := i.indexRows[i.i]
 		rowLoc := idxRow[len(idxRow)-1].(primaryRowLocation)
@@ -484,28 +483,28 @@ func (i *indexScanRowIter) Next(ctx *sql.Context) (sql.Row, error) {
 
 		candidate := i.primaryRows[rowLoc.partition][rowLoc.idx]
 
-		matches, err := indexRowMatches(i.ranges, idxRow[:len(idxRow)-1])
+		matches, err := indexRowMatches(i.ranges, sql.NewSqlRowFromRow(idxRow[:len(idxRow)-1]))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if matches {
-			row = candidate
+			row.CopyRange(0, candidate)
 			i.incrementFunc()
 			break
 		}
 	}
 
 	if row == nil {
-		return nil, io.EOF
+		return io.EOF
 	}
 
 	row = normalizeRowForRead(row, i.numColumns, i.virtualCols)
 
-	return projectRow(i.columns, row), nil
+	return nil
 }
 
-func indexRowMatches(ranges sql.Expression, candidate sql.Row) (bool, error) {
+func indexRowMatches(ranges sql.Expression, candidate sql.LazyRow) (bool, error) {
 	result, err := ranges.Eval(nil, candidate)
 	if err != nil {
 		return false, err
@@ -571,8 +570,10 @@ func (t *Table) PartitionRows(ctx *sql.Context, partition sql.Partition) (sql.Ro
 	}
 	// The slice could be altered by other operations taking place during iteration (such as deletion or insertion), so
 	// make a copy of the values as they exist when execution begins.
-	rowsCopy := make([]sql.Row, len(rows))
-	copy(rowsCopy, rows)
+	rowsCopy := make([]sql.LazyRow, len(rows))
+	for i, r := range rows {
+		rowsCopy[i] = sql.NewSqlRowFromRow(r)
+	}
 
 	numColumns := len(data.schema.Schema)
 	if len(t.columns) > 0 {
@@ -678,7 +679,7 @@ type tableIter struct {
 	virtualCols []int
 	numColumns  int
 
-	rows        []sql.Row
+	rows        []sql.LazyRow
 	filters     []sql.Expression
 	indexValues sql.IndexValueIter
 	pos         int
@@ -686,26 +687,27 @@ type tableIter struct {
 
 var _ sql.RowIter = (*tableIter)(nil)
 
-func (i *tableIter) Next(ctx *sql.Context) (sql.Row, error) {
-	row, err := i.getRow(ctx)
+func (i *tableIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	r, err := i.getRow(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	row.CopyRange(0, r)
 
 	row = normalizeRowForRead(row, i.numColumns, i.virtualCols)
 
 	for _, f := range i.filters {
 		result, err := f.Eval(ctx, row)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		result, _ = sql.ConvertToBool(ctx, result)
 		if result != true {
-			return i.Next(ctx)
+			return i.Next(ctx, nil)
 		}
 	}
 
-	return projectRow(i.columns, row), nil
+	return nil
 }
 
 func projectRow(columns []int, row sql.Row) sql.Row {
@@ -720,23 +722,21 @@ func projectRow(columns []int, row sql.Row) sql.Row {
 }
 
 // normalizeRowForRead returns a copy of the row with nil values inserted for any virtual columns
-func normalizeRowForRead(row sql.Row, numColumns int, virtualCols []int) sql.Row {
+func normalizeRowForRead(row sql.LazyRow, numColumns int, virtualCols []int) sql.LazyRow {
 	if len(virtualCols) == 0 {
 		return row
 	}
-
-	var virtualRow sql.Row
 
 	// Columns are the indexes of projected columns, which we don't always have. In either case, we are filling the row
 	// with nil values for virtual columns. The simple iteration below only works when the column and virtual column
 	// indexes are in ascending order, which is true for the time being.
 	var j int
-	virtualRow = make(sql.Row, numColumns)
+	virtualRow := sql.NewSqlRow(numColumns)
 	for i := 0; i < numColumns; i++ {
 		if j < len(virtualCols) && i == virtualCols[j] {
 			j++
 		} else {
-			virtualRow[i] = row[i-j]
+			virtualRow.SetSqlValue(i, row.SqlValue(i-j))
 		}
 	}
 
@@ -751,7 +751,7 @@ func (i *tableIter) Close(ctx *sql.Context) error {
 	return i.indexValues.Close(ctx)
 }
 
-func (i *tableIter) getRow(ctx *sql.Context) (sql.Row, error) {
+func (i *tableIter) getRow(ctx *sql.Context) (sql.LazyRow, error) {
 	if i.indexValues != nil {
 		return i.getFromIndex(ctx)
 	}
@@ -778,7 +778,7 @@ func projectOnRow(columns []int, row sql.Row) sql.Row {
 	return projected
 }
 
-func (i *tableIter) getFromIndex(ctx *sql.Context) (sql.Row, error) {
+func (i *tableIter) getFromIndex(ctx *sql.Context) (sql.LazyRow, error) {
 	data, err := i.indexValues.Next(ctx)
 	if err != nil {
 		return nil, err
@@ -794,7 +794,7 @@ func (i *tableIter) getFromIndex(ctx *sql.Context) (sql.Row, error) {
 
 type spatialTableIter struct {
 	columns                []int
-	rows                   []sql.Row
+	rows                   []sql.LazyRow
 	pos                    int
 	ord                    int
 	minX, minY, maxX, maxY float64
@@ -802,23 +802,23 @@ type spatialTableIter struct {
 
 var _ sql.RowIter = (*spatialTableIter)(nil)
 
-func (i *spatialTableIter) Next(ctx *sql.Context) (sql.Row, error) {
-	row, err := i.getRow(ctx)
+func (i *spatialTableIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	err := i.getRow(ctx, row)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if len(i.columns) == 0 {
-		return row, nil
+		return nil
 	}
 
 	// check if bounding boxes of geometry and range intersect
 	// if the range [i.minX, i.maxX] and [gMinX, gMaxX] overlap and
 	// if the range [i.minY, i.maxY] and [gMinY, gMaxY] overlap
 	// then, the bounding boxes intersect
-	g, ok := row[i.ord].(types.GeometryValue)
+	g, ok := row.SqlValue(i.ord).(types.GeometryValue)
 	if !ok {
-		return nil, fmt.Errorf("spatial index over non-geometry column")
+		return fmt.Errorf("spatial index over non-geometry column")
 	}
 	gMinX, gMinY, gMaxX, gMaxY := g.BBox()
 	xInt := (gMinX <= i.minX && i.minX <= gMaxX) ||
@@ -830,28 +830,29 @@ func (i *spatialTableIter) Next(ctx *sql.Context) (sql.Row, error) {
 		(i.minY <= gMinY && gMinY <= i.maxY) ||
 		(i.minY <= gMaxY && gMaxY <= i.maxY)
 	if !(xInt && yInt) {
-		return i.Next(ctx)
+		return i.Next(ctx, nil)
 	}
 
 	resultRow := make(sql.Row, len(i.columns))
 	for i, j := range i.columns {
-		resultRow[i] = row[j]
+		resultRow[i] = row.SqlValue(j)
 	}
-	return resultRow, nil
+	row.CopyRange(0, resultRow)
+	return nil
 }
 
 func (i *spatialTableIter) Close(ctx *sql.Context) error {
 	return nil
 }
 
-func (i *spatialTableIter) getRow(ctx *sql.Context) (sql.Row, error) {
+func (i *spatialTableIter) getRow(ctx *sql.Context, row sql.LazyRow) error {
 	if i.pos >= len(i.rows) {
-		return nil, io.EOF
+		return io.EOF
 	}
 
-	row := i.rows[i.pos]
+	row.CopyRange(0, i.rows[i.pos])
 	i.pos++
-	return row, nil
+	return nil
 }
 
 type IndexValue struct {
@@ -1133,7 +1134,7 @@ func (t *Table) Truncate(ctx *sql.Context) (int, error) {
 // Insert is a convenience method to avoid having to create an inserter in test setup
 func (t *Table) Insert(ctx *sql.Context, row sql.Row) error {
 	inserter := t.Inserter(ctx)
-	if err := inserter.Insert(ctx, row); err != nil {
+	if err := inserter.Insert(ctx, sql.NewSqlRowFromRow(row)); err != nil {
 		return err
 	}
 	return inserter.Close(ctx)

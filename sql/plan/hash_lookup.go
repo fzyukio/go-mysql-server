@@ -47,7 +47,7 @@ type HashLookup struct {
 	RightEntryKey sql.Expression
 	LeftProbeKey  sql.Expression
 	Mutex         *sync.Mutex
-	Lookup        *map[interface{}][]sql.Row
+	Lookup        *map[interface{}][]sql.LazyRow
 	JoinType      JoinType
 }
 
@@ -118,7 +118,7 @@ func (n *HashLookup) CollationCoercibility(ctx *sql.Context) (collation sql.Coll
 // Fast paths a few smaller slices into fixed size arrays, puts everything else
 // through string serialization and a hash for now. It is OK to hash lossy here
 // as the join condition is still evaluated after the matching rows are returned.
-func (n *HashLookup) GetHashKey(ctx *sql.Context, e sql.Expression, row sql.Row) (interface{}, error) {
+func (n *HashLookup) GetHashKey(ctx *sql.Context, e sql.Expression, row sql.LazyRow) (interface{}, error) {
 	key, err := e.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func (n *HashLookup) GetHashKey(ctx *sql.Context, e sql.Expression, row sql.Row)
 		return nil, err
 	}
 	if s, ok := key.([]interface{}); ok {
-		return sql.HashOf(s)
+		return sql.HashOf(sql.NewSqlRowFromRow(s))
 	}
 	// byte slices are not hashable
 	if k, ok := key.([]byte); ok {

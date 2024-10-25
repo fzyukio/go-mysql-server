@@ -53,7 +53,7 @@ func (*Ascii) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID
 }
 
 // Eval implements the sql.Expression interface
-func (a *Ascii) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (a *Ascii) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := a.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (o *Ord) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID
 }
 
 // Eval implements the sql.Expression interface
-func (o *Ord) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (o *Ord) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := o.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -174,7 +174,7 @@ func (*Hex) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID, 
 }
 
 // Eval implements the sql.Expression interface
-func (h *Hex) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (h *Hex) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	arg, err := h.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -335,7 +335,7 @@ func (*Unhex) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID
 }
 
 // Eval implements the sql.Expression interface
-func (h *Unhex) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (h *Unhex) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	arg, err := h.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -424,7 +424,7 @@ func (*Bin) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID, 
 }
 
 // Eval implements the sql.Expression interface
-func (h *Bin) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (h *Bin) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	arg, err := h.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -571,7 +571,7 @@ func (*Bitlength) CollationCoercibility(ctx *sql.Context) (collation sql.Collati
 }
 
 // Eval implements the sql.Expression interface
-func (h *Bitlength) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (h *Bitlength) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	arg, err := h.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err

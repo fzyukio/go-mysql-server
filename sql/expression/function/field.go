@@ -102,7 +102,7 @@ func (f *Field) Children() []sql.Expression {
 }
 
 // Eval implements the Expression interface.
-func (f *Field) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *Field) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	if f.args[0] == nil {
 		return int64(0), nil
 	}

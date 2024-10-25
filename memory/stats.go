@@ -116,7 +116,7 @@ func (s *StatsProv) estimateStats(ctx *sql.Context, table sql.Table, keys map[st
 		keyVals := make([]sql.Row, len(sample))
 		for i, row := range sample {
 			for _, ord := range ordinals {
-				keyVals[i] = append(keyVals[i], row[ord])
+				keyVals[i] = append(keyVals[i], row.SqlValue(ord))
 			}
 		}
 		sort.Slice(keyVals, func(i, j int) bool {
@@ -177,10 +177,10 @@ func (s *StatsProv) estimateStats(ctx *sql.Context, table sql.Table, keys map[st
 
 // reservoirSample selects a random subset of values from the table.
 // Algorithm L from: https://dl.acm.org/doi/pdf/10.1145/198429.198435
-func (s *StatsProv) reservoirSample(ctx *sql.Context, table sql.Table) ([]sql.Row, error) {
+func (s *StatsProv) reservoirSample(ctx *sql.Context, table sql.Table) ([]sql.LazyRow, error) {
 	// read through table
 	var maxQueue float64 = 4000
-	var queue []sql.Row
+	var queue []sql.LazyRow
 	partIter, err := table.Partitions(ctx)
 	if err != nil {
 		return nil, err
@@ -207,7 +207,8 @@ func (s *StatsProv) reservoirSample(ctx *sql.Context, table sql.Table) ([]sql.Ro
 			return nil, err
 		}
 		for {
-			row, err := rowIter.Next(ctx)
+			row := sql.NewSqlRow(0)
+			err := rowIter.Next(ctx, nil)
 			if errors.Is(err, io.EOF) {
 				break
 			} else if err != nil {

@@ -88,15 +88,16 @@ func FormatRow(row Row) string {
 type RowIter interface {
 	// Next retrieves the next row. It will return io.EOF if it's the last row.
 	// After retrieving the last row, Close will be automatically closed.
-	Next(ctx *Context) (Row, error)
+	Next(ctx *Context, row LazyRow) error
 	Closer
 }
 
 // RowIterToRows converts a row iterator to a slice of rows.
-func RowIterToRows(ctx *Context, i RowIter) ([]Row, error) {
-	var rows []Row
+func RowIterToRows(ctx *Context, i RowIter, size int) ([]LazyRow, error) {
+	var rows []LazyRow
 	for {
-		row, err := i.Next(ctx)
+		row := NewSqlRow(size)
+		err := i.Next(ctx, nil)
 		if err == io.EOF {
 			break
 		}
@@ -182,22 +183,125 @@ func RowsToRowIter(rows ...Row) RowIter {
 	return &sliceRowIter{rows: rows}
 }
 
+// LazyRowsToRowIter creates a RowIter that iterates over the given rows.
+func LazyRowsToRowIter(lrows ...LazyRow) RowIter {
+	rows := make([]Row, len(lrows))
+	for i, r := range lrows {
+		rows[i] = r.SqlValues()
+	}
+	return &sliceRowIter{rows: rows}
+}
+
 type sliceRowIter struct {
 	rows []Row
 	idx  int
 }
 
-func (i *sliceRowIter) Next(*Context) (Row, error) {
+func (i *sliceRowIter) Next(_ *Context, r LazyRow) error {
 	if i.idx >= len(i.rows) {
-		return nil, io.EOF
+		return io.EOF
 	}
-
-	r := i.rows[i.idx]
+	CopyToSqlRow(0, i.rows[i.idx], r)
 	i.idx++
-	return r.Copy(), nil
+	return nil
 }
 
 func (i *sliceRowIter) Close(*Context) error {
 	i.rows = nil
 	return nil
+}
+
+type LazyRow interface {
+	Bytes(i int) []byte
+	SqlValue(i int) interface{}
+	SqlValues() []interface{}
+	SetSqlValue(i int, v interface{})
+	Equals(LazyRow, Schema) (bool, error)
+	Count() int
+	Copy() LazyRow
+	SelectRange(int, int) LazyRow
+	CopyRange(int, ...interface{})
+}
+
+func NewSqlRow(size int) *SQLRow {
+	return &SQLRow{vals: make([]interface{}, size)}
+}
+
+func NewSqlRowFromRow(r Row) *SQLRow {
+	row := NewSqlRow(len(r))
+	for i, v := range r {
+		row.SetSqlValue(i, v)
+	}
+	return row
+}
+
+func CopyToSqlRow(offset int, r Row, lr LazyRow) {
+	for i, v := range r {
+		lr.SetSqlValue(offset+i, v)
+	}
+}
+
+type SQLRow struct {
+	buf     []byte
+	offsets []int
+	vals    []interface{}
+}
+
+func (r *SQLRow) Bytes(i int) []byte {
+	return r.buf[r.offsets[i]:r.offsets[i+1]]
+}
+
+func (r *SQLRow) SqlValue(i int) interface{} {
+	return r.vals[i]
+}
+
+func (r *SQLRow) SqlValues() []interface{} {
+	return r.vals
+}
+
+func (r *SQLRow) SetSqlValue(i int, v interface{}) {
+	r.vals[i] = v
+}
+
+func (r *SQLRow) CopyRange(offset int, vals ...interface{}) {
+	for i, v := range vals {
+		r.SetSqlValue(offset+i, v)
+	}
+}
+
+func (r *SQLRow) SelectRange(i, j int) LazyRow {
+	v := make([]interface{}, j-i)
+	copy(v, r.vals[i:j])
+	return NewSqlRowFromRow(v)
+}
+
+func (r *SQLRow) Count() int {
+	return len(r.vals)
+}
+
+func (r *SQLRow) Copy() LazyRow {
+	v := make([]interface{}, len(r.vals))
+	copy(v, r.vals)
+	return NewSqlRowFromRow(v)
+}
+
+// Equals checks whether two rows are equal given a schema.
+func (r *SQLRow) Equals(row LazyRow, schema Schema) (bool, error) {
+	if row.Count() != r.Count() || row.Count() != len(schema) {
+		return false, nil
+	}
+
+	for i := 0; i < r.Count(); i++ {
+		colLeft := r.SqlValue(i)
+		colRight := row.SqlValue(i)
+		cmp, err := schema[i].Type.Compare(colLeft, colRight)
+		if err != nil {
+			return false, err
+		}
+		if cmp != 0 {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }

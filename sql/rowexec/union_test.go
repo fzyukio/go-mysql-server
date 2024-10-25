@@ -89,7 +89,7 @@ func TestUnion(t *testing.T) {
 
 		var results []string
 		for {
-			row, err := iter.Next(ctx)
+			err := iter.Next(ctx, nil)
 			if err == io.EOF {
 				break
 			}

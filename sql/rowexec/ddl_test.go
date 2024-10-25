@@ -82,11 +82,11 @@ func TestDropTable(t *testing.T) {
 	rows, err := DefaultBuilder.Build(ctx, d, nil)
 	require.NoError(err)
 
-	r, err := rows.Next(ctx)
+	err := rows.Next(ctx, nil)
 	require.Nil(err)
 	require.Equal(sql.NewRow(types.NewOkResult(0)), r)
 
-	r, err = rows.Next(ctx)
+	err = rows.Next(ctx, nil)
 	require.Equal(io.EOF, err)
 
 	_, ok := db.Tables()["testTable1"]
@@ -116,11 +116,11 @@ func createTable(t *testing.T, ctx *sql.Context, db sql.Database, name string, s
 		return err
 	}
 
-	r, err := rows.Next(ctx)
+	err := rows.Next(ctx, nil)
 	require.Nil(t, err)
 	require.Equal(t, sql.NewRow(types.NewOkResult(0)), r)
 
-	r, err = rows.Next(ctx)
+	err = rows.Next(ctx, nil)
 	require.Equal(t, io.EOF, err)
 	return nil
 }

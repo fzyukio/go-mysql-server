@@ -37,7 +37,7 @@ func TestResolvedTable(t *testing.T) {
 	iter, err := DefaultBuilder.Build(ctx, table, nil)
 	require.NoError(err)
 
-	rows, err := sql.RowIterToRows(ctx, iter)
+	rows, err := sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 	require.Len(rows, 9)
 
@@ -63,7 +63,7 @@ func TestResolvedTableCancelled(t *testing.T) {
 	iter, err := DefaultBuilder.Build(ctx, table, nil)
 	require.NoError(err)
 
-	_, err = iter.Next(ctx)
+	err = iter.Next(ctx, nil)
 	require.Equal(context.Canceled, err)
 }
 

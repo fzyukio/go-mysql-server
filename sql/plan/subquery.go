@@ -40,7 +40,7 @@ type Subquery struct {
 	// Whether results have been cached
 	resultsCached bool
 	// Cached results, if any
-	cache []interface{}
+	cache []sql.LazyRow
 	// Cached hash results, if any
 	hashCache sql.KeyValueCache
 	// Dispose function for the cache, if any. This would appear to violate the rule that nodes must be comparable by
@@ -160,7 +160,7 @@ func (p *PrependNode) CollationCoercibility(ctx *sql.Context) (collation sql.Col
 }
 
 // Eval implements the Expression interface.
-func (s *Subquery) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (s *Subquery) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	s.cacheMu.Lock()
 	cached := s.resultsCached
 	s.cacheMu.Unlock()
@@ -327,7 +327,7 @@ func (m *Max1Row) CollationCoercibility(ctx *sql.Context) (collation sql.Collati
 }
 
 // EvalMultiple returns all rows returned by a subquery.
-func (s *Subquery) EvalMultiple(ctx *sql.Context, row sql.Row) ([]interface{}, error) {
+func (s *Subquery) EvalMultiple(ctx *sql.Context, row sql.LazyRow) ([]sql.LazyRow, error) {
 	s.cacheMu.Lock()
 	cached := s.resultsCached
 	s.cacheMu.Unlock()
@@ -355,10 +355,10 @@ func (s *Subquery) canCacheResults() bool {
 	return s.correlated.Empty() && !s.volatile
 }
 
-func (s *Subquery) evalMultiple(ctx *sql.Context, row sql.Row) ([]interface{}, error) {
+func (s *Subquery) evalMultiple(ctx *sql.Context, row sql.LazyRow) ([]sql.LazyRow, error) {
 	// Any source of rows, as well as any node that alters the schema of its children, needs to be wrapped so that its
 	// result rows are prepended with the scope row.
-	q, _, err := transform.Node(s.Query, PrependRowInPlan(row, false))
+	q, _, err := transform.Node(s.Query, PrependRowInPlan(row.SqlValues(), false))
 	if err != nil {
 		return nil, err
 	}
@@ -368,13 +368,14 @@ func (s *Subquery) evalMultiple(ctx *sql.Context, row sql.Row) ([]interface{}, e
 		return nil, err
 	}
 
-	returnsTuple := len(s.Query.Schema()) > 1
+	//returnsTuple := len(s.Query.Schema()) > 1
 
 	// Reduce the result row to the size of the expected schema. This means chopping off the first len(row) columns.
-	col := len(row)
-	var result []interface{}
+	//col := row.Count()
+	var result []sql.LazyRow
 	for {
-		row, err := iter.Next(ctx)
+		row := sql.NewSqlRow(0)
+		err := iter.Next(ctx, row)
 		if err == io.EOF {
 			break
 		}
@@ -383,11 +384,12 @@ func (s *Subquery) evalMultiple(ctx *sql.Context, row sql.Row) ([]interface{}, e
 			return nil, err
 		}
 
-		if returnsTuple {
-			result = append(result, append([]interface{}{}, row[col:]...))
-		} else {
-			result = append(result, row[col])
-		}
+		//if returnsTuple {
+		//	result = append(result, append([]interface{}{}, row[col:]...))
+		//} else {
+		//	result = append(result, row[col])
+		//}
+		result = append(result, row)
 	}
 
 	if err := iter.Close(ctx); err != nil {
@@ -399,7 +401,7 @@ func (s *Subquery) evalMultiple(ctx *sql.Context, row sql.Row) ([]interface{}, e
 
 // HashMultiple returns all rows returned by a subquery, backed by a sql.KeyValueCache. Keys are constructed using the
 // 64-bit hash of the values stored.
-func (s *Subquery) HashMultiple(ctx *sql.Context, row sql.Row) (sql.KeyValueCache, error) {
+func (s *Subquery) HashMultiple(ctx *sql.Context, row sql.LazyRow) (sql.KeyValueCache, error) {
 	s.cacheMu.Lock()
 	cached := s.resultsCached && s.hashCache != nil
 	s.cacheMu.Unlock()
@@ -417,7 +419,7 @@ func (s *Subquery) HashMultiple(ctx *sql.Context, row sql.Row) (sql.KeyValueCach
 		defer s.cacheMu.Unlock()
 		if !s.resultsCached || s.hashCache == nil {
 			hashCache, disposeFn := ctx.Memory.NewHistoryCache()
-			err = putAllRows(hashCache, result)
+			err = putAllRows(hashCache, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -427,11 +429,11 @@ func (s *Subquery) HashMultiple(ctx *sql.Context, row sql.Row) (sql.KeyValueCach
 	}
 
 	cache := sql.NewMapCache()
-	return cache, putAllRows(cache, result)
+	return cache, putAllRows(cache, nil)
 }
 
 // HasResultRow returns whether the subquery has a result set > 0.
-func (s *Subquery) HasResultRow(ctx *sql.Context, row sql.Row) (bool, error) {
+func (s *Subquery) HasResultRow(ctx *sql.Context, row sql.LazyRow) (bool, error) {
 	// First check if the query was cached.
 	s.cacheMu.Lock()
 	cached := s.resultsCached
@@ -443,7 +445,7 @@ func (s *Subquery) HasResultRow(ctx *sql.Context, row sql.Row) (bool, error) {
 
 	// Any source of rows, as well as any node that alters the schema of its children, needs to be wrapped so that its
 	// result rows are prepended with the scope row.
-	q, _, err := transform.Node(s.Query, PrependRowInPlan(row, false))
+	q, _, err := transform.Node(s.Query, PrependRowInPlan(row.SqlValues(), false))
 	if err != nil {
 		return false, err
 	}
@@ -454,7 +456,7 @@ func (s *Subquery) HasResultRow(ctx *sql.Context, row sql.Row) (bool, error) {
 	}
 
 	// Call the iterator once and see if it has a row. If io.EOF is received return false.
-	_, err = iter.Next(ctx)
+	err = iter.Next(ctx, nil)
 	if err == io.EOF {
 		err = iter.Close(ctx)
 		return false, err
@@ -472,7 +474,7 @@ func (s *Subquery) HasResultRow(ctx *sql.Context, row sql.Row) (bool, error) {
 
 func putAllRows(cache sql.KeyValueCache, vals []interface{}) error {
 	for _, val := range vals {
-		rowKey, err := sql.HashOf(sql.NewRow(val))
+		rowKey, err := sql.HashOf(sql.NewSqlRowFromRow(sql.NewRow(val)))
 		if err != nil {
 			return err
 		}

@@ -102,7 +102,7 @@ func (de *DistinctExpression) IsNullable() bool {
 
 // Returns the child value if the cache hasn't seen the value before otherwise returns nil.
 // Since NULLs are ignored in aggregate expressions that use DISTINCT this is a valid return scheme.
-func (de *DistinctExpression) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (de *DistinctExpression) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := de.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err

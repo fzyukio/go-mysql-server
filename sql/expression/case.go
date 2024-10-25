@@ -156,7 +156,7 @@ func (c *Case) Children() []sql.Expression {
 }
 
 // Eval implements the sql.Expression interface.
-func (c *Case) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (c *Case) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	span, ctx := ctx.Span("expression.Case")
 	defer span.End()
 

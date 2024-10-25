@@ -189,7 +189,7 @@ type fulltextFilterTableRowIter struct {
 var _ sql.RowIter = (*fulltextFilterTableRowIter)(nil)
 
 // Next implements the interface sql.RowIter.
-func (f *fulltextFilterTableRowIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (f *fulltextFilterTableRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	for {
 		// If we don't have an iterator for the parent table, then we need to get one
 		if f.parentIter == nil {
@@ -197,10 +197,10 @@ func (f *fulltextFilterTableRowIter) Next(ctx *sql.Context) (sql.Row, error) {
 			if f.docCountIter == nil {
 				word, reachedTheEnd, err := f.parser.NextUnique(ctx)
 				if err != nil {
-					return nil, err
+					return err
 				}
 				if reachedTheEnd {
-					return nil, io.EOF
+					return io.EOF
 				}
 				lookup := sql.IndexLookup{Ranges: sql.MySQLRangeCollection{{
 					sql.ClosedRangeColumnExpr(word, word, f.matchAgainst.DocCountTable.Schema()[0].Type),
@@ -208,63 +208,64 @@ func (f *fulltextFilterTableRowIter) Next(ctx *sql.Context) (sql.Row, error) {
 
 				docCountData := f.matchAgainst.DocCountTable.IndexedAccess(lookup)
 				if err != nil {
-					return nil, err
+					return err
 				}
 
 				partIter, err := docCountData.LookupPartitions(ctx, lookup)
 				if err != nil {
-					return nil, err
+					return err
 				}
 
 				f.docCountIter = sql.NewTableRowIter(ctx, docCountData, partIter)
 			}
 
 			// We have an iterator for the document table, so grab the next row
-			docRow, err := f.docCountIter.Next(ctx)
+			docRow := sql.NewSqlRow(len(f.docCountIndex.Expressions()))
+			err := f.docCountIter.Next(ctx, docRow)
 			if err != nil {
 				if err == io.EOF {
 					if err = f.docCountIter.Close(ctx); err != nil {
-						return nil, err
+						return err
 					}
 					f.docCountIter = nil
 					continue
 				}
-				return nil, err
+				return err
 			}
 
 			// Get the key so that we may get rows from the parent table
-			ranges := make(sql.MySQLRange, len(docRow)-2)
-			for i, val := range docRow[1 : len(docRow)-1] {
+			ranges := make(sql.MySQLRange, docRow.Count()-2)
+			for i, val := range docRow.SqlValues()[1 : docRow.Count()-1] {
 				ranges[i] = sql.ClosedRangeColumnExpr(val, val, f.matchAgainst.DocCountTable.Schema()[i+1].Type)
 			}
 			lookup := sql.IndexLookup{Ranges: sql.MySQLRangeCollection{ranges}, Index: f.parentIndex}
 
 			parentData := f.matchAgainst.ParentTable.IndexedAccess(lookup)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			partIter, err := parentData.LookupPartitions(ctx, lookup)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			f.parentIter = sql.NewTableRowIter(ctx, parentData, partIter)
 		}
 
 		// We have an iterator for the parent table, so grab the next row
-		parentRow, err := f.parentIter.Next(ctx)
+		err := f.parentIter.Next(ctx, nil)
 		if err != nil {
 			if err == io.EOF {
 				if err = f.parentIter.Close(ctx); err != nil {
-					return nil, err
+					return err
 				}
 				f.parentIter = nil
 				continue
 			}
-			return nil, err
+			return err
 		}
-		return parentRow, nil
+		return nil
 	}
 }
 

@@ -63,7 +63,7 @@ func TestDistinct(t *testing.T) {
 
 	var results []string
 	for {
-		row, err := iter.Next(ctx)
+		err := iter.Next(ctx, nil)
 		if err == io.EOF {
 			break
 		}
@@ -113,7 +113,7 @@ func TestOrderedDistinct(t *testing.T) {
 
 	var results []string
 	for {
-		row, err := iter.Next(ctx)
+		err := iter.Next(ctx, nil)
 		if err == io.EOF {
 			break
 		}
@@ -148,7 +148,7 @@ func BenchmarkDistinct(b *testing.B) {
 
 		var rows int
 		for {
-			_, err := iter.Next(ctx)
+			err := iter.Next(ctx, nil)
 			if err == io.EOF {
 				break
 			}
@@ -181,7 +181,7 @@ func BenchmarkOrderedDistinct(b *testing.B) {
 
 		var rows int
 		for {
-			_, err := iter.Next(ctx)
+			err := iter.Next(ctx, nil)
 			if err == io.EOF {
 				break
 			}

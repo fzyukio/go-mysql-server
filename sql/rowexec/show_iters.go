@@ -30,14 +30,15 @@ type describeIter struct {
 	i      int
 }
 
-func (i *describeIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *describeIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if i.i >= len(i.schema) {
-		return nil, io.EOF
+		return io.EOF
 	}
 
 	f := i.schema[i.i]
 	i.i++
-	return sql.NewRow(f.Name, f.Type.String()), nil
+	row.CopyRange(0, sql.NewRow(f.Name, f.Type.String()))
+	return nil
 }
 
 func (i *describeIter) Close(*sql.Context) error {
@@ -207,10 +208,10 @@ type showIndexesIter struct {
 	idxs  *indexesToShow
 }
 
-func (i *showIndexesIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *showIndexesIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	show, err := i.idxs.next()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var expression, columnName interface{}
@@ -218,7 +219,7 @@ func (i *showIndexesIter) Next(ctx *sql.Context) (sql.Row, error) {
 	tbl := i.table
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	nullable := ""
@@ -241,7 +242,7 @@ func (i *showIndexesIter) Next(ctx *sql.Context) (sql.Row, error) {
 		nonUnique = 1
 	}
 
-	return sql.NewRow(
+	row.CopyRange(0, sql.NewRow(
 		show.index.Table(),     // "Table" string
 		nonUnique,              // "Non_unique" int32, Values [0, 1]
 		show.index.ID(),        // "Key_name" string
@@ -257,7 +258,8 @@ func (i *showIndexesIter) Next(ctx *sql.Context) (sql.Row, error) {
 		"",                     // "Index_comment" string
 		visible,                // "Visible" string, Values [YES, NO]
 		expression,             // "Expression" string
-	), nil
+	))
+	return nil
 }
 
 // isPriCol checks if this column is the first column in a unique index
@@ -332,49 +334,48 @@ type showCreateTablesIter struct {
 	pkSchema     sql.PrimaryKeySchema
 }
 
-func (i *showCreateTablesIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *showCreateTablesIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if i.didIteration {
-		return nil, io.EOF
+		return io.EOF
 	}
 
 	i.didIteration = true
 
-	var row sql.Row
 	switch table := i.table.(type) {
 	case *plan.ResolvedTable:
 		// MySQL behavior is to allow show create table for views, but not show create view for tables.
 		if i.isView {
-			return nil, plan.ErrNotView.New(table.Name())
+			return plan.ErrNotView.New(table.Name())
 		}
 
 		composedCreateTableStatement, err := i.produceCreateTableStatement(ctx, table.Table, i.schema, i.pkSchema)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		row = sql.NewRow(
+		row.CopyRange(0, sql.NewRow(
 			table.Name(),                 // "Table" string
 			composedCreateTableStatement, // "Create Table" string
-		)
+		))
 	case *plan.SubqueryAlias:
 		characterSetClient, err := ctx.GetSessionVariable(ctx, "character_set_client")
 		if err != nil {
-			return nil, err
+			return err
 		}
 		collationConnection, err := ctx.GetSessionVariable(ctx, "collation_connection")
 		if err != nil {
-			return nil, err
+			return err
 		}
-		row = sql.NewRow(
+		row.CopyRange(0, sql.NewRow(
 			table.Name(),                      // "View" string
 			produceCreateViewStatement(table), // "Create View" string
 			characterSetClient,
 			collationConnection,
-		)
+		))
 	default:
 		panic(fmt.Sprintf("unexpected type %T", i.table))
 	}
 
-	return row, nil
+	return nil
 }
 
 type NameAndSchema interface {

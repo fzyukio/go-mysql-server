@@ -71,7 +71,7 @@ func (j JSONValid) IsNullable() bool {
 	return j.JSON.IsNullable()
 }
 
-func (j JSONValid) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (j JSONValid) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	doc, err := getJSONDocumentFromRow(ctx, row, j.JSON)
 	if err != nil {
 		return false, nil

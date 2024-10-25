@@ -84,7 +84,7 @@ func (sc *ShowCharset) Children() []sql.Node {
 	return []sql.Node{sc.CharacterSetTable}
 }
 
-func (sc *ShowCharset) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (sc *ShowCharset) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	//TODO: use the information_schema table instead, currently bypassing it to show currently-implemented charsets
 	//ri, err := sc.CharacterSetTable.RowIter(ctx, row)
 	//if err != nil {
@@ -111,19 +111,19 @@ type showCharsetIter struct {
 	originalIter sql.RowIter
 }
 
-func (sci *showCharsetIter) Next(ctx *sql.Context) (sql.Row, error) {
-	row, err := sci.originalIter.Next(ctx)
+func (sci *showCharsetIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	err := sci.originalIter.Next(ctx, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// switch the ordering (see notes on Schema())
-	defaultCollationName := row[1]
+	defaultCollationName := row.SqlValue(1)
 
-	row[1] = row[2]
-	row[2] = defaultCollationName
+	row.SetSqlValue(1, row.SqlValue(2))
+	row.SetSqlValue(2, defaultCollationName)
 
-	return row, nil
+	return nil
 }
 
 func (sci *showCharsetIter) Close(ctx *sql.Context) error {

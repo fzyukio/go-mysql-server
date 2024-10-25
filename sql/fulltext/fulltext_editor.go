@@ -255,7 +255,7 @@ func (editor TableEditor) StatementComplete(ctx *sql.Context) error {
 }
 
 // Insert implements the interface sql.TableEditor.
-func (editor TableEditor) Insert(ctx *sql.Context, row sql.Row) error {
+func (editor TableEditor) Insert(ctx *sql.Context, row sql.LazyRow) error {
 	hash, err := HashRow(row)
 	if err != nil {
 		return err
@@ -265,7 +265,7 @@ func (editor TableEditor) Insert(ctx *sql.Context, row sql.Row) error {
 		// Grab the source columns
 		sourceCols := make([]interface{}, len(index.SourceCols))
 		for i, sourceCol := range index.SourceCols {
-			sourceCols[i] = row[sourceCol]
+			sourceCols[i] = row.SqlValue(sourceCol)
 		}
 
 		// Get the row count for this exact row's hash
@@ -277,7 +277,7 @@ func (editor TableEditor) Insert(ctx *sql.Context, row sql.Row) error {
 		// If there are duplicate rows, then we don't need to write to all of the tables
 		if rowCount >= 1 {
 			// We'll update the row count since we're adding a row
-			if err = index.RowCount.Editor.Update(ctx, sql.Row{hash, rowCount, uniqueWords}, sql.Row{hash, rowCount + 1, uniqueWords}); err != nil {
+			if err = index.RowCount.Editor.Update(ctx, sql.NewSqlRowFromRow(sql.Row{hash, rowCount, uniqueWords}), sql.NewSqlRowFromRow(sql.Row{hash, rowCount + 1, uniqueWords})); err != nil {
 				return err
 			}
 			// We then need to update the global count, since it's dependent on the number of rows as well
@@ -305,7 +305,7 @@ func (editor TableEditor) Insert(ctx *sql.Context, row sql.Row) error {
 		if err != nil {
 			return err
 		}
-		if err = index.RowCount.Editor.Insert(ctx, sql.Row{hash, uint64(1), parser.UniqueWordCount(ctx)}); err != nil {
+		if err = index.RowCount.Editor.Insert(ctx, sql.NewSqlRowFromRow(sql.Row{hash, uint64(1), parser.UniqueWordCount(ctx)})); err != nil {
 			return err
 		}
 
@@ -314,7 +314,7 @@ func (editor TableEditor) Insert(ctx *sql.Context, row sql.Row) error {
 		if index.KeyCols.Type != KeyType_None {
 			keyCols = make([]interface{}, len(index.KeyCols.Positions))
 			for i, refCol := range index.KeyCols.Positions {
-				keyCols[i] = row[refCol]
+				keyCols[i] = row.SqlValue(refCol)
 			}
 		} else {
 			keyCols = []interface{}{hash}
@@ -331,7 +331,7 @@ func (editor TableEditor) Insert(ctx *sql.Context, row sql.Row) error {
 			positionRow[0] = word
 			positionRow = append(positionRow, keyCols...)
 			positionRow = append(positionRow, position)
-			if err = index.Position.Editor.Insert(ctx, positionRow); err != nil {
+			if err = index.Position.Editor.Insert(ctx, sql.NewSqlRowFromRow(positionRow)); err != nil {
 				return err
 			}
 		}
@@ -355,7 +355,7 @@ func (editor TableEditor) Insert(ctx *sql.Context, row sql.Row) error {
 			docCountRow = append(docCountRow, keyCols...)
 			docCountRow = append(docCountRow, wordDocCount)
 			//TODO: write to this table only once, rather than ignoring duplicate errors
-			if err = index.DocCount.Editor.Insert(ctx, docCountRow); err != nil && !sql.ErrPrimaryKeyViolation.Is(err) && !sql.ErrUniqueKeyViolation.Is(err) && !sql.ErrDuplicateEntry.Is(err) {
+			if err = index.DocCount.Editor.Insert(ctx, sql.NewSqlRowFromRow(docCountRow)); err != nil && !sql.ErrPrimaryKeyViolation.Is(err) && !sql.ErrUniqueKeyViolation.Is(err) && !sql.ErrDuplicateEntry.Is(err) {
 				return err
 			}
 
@@ -372,7 +372,7 @@ func (editor TableEditor) Insert(ctx *sql.Context, row sql.Row) error {
 }
 
 // Update implements the interface sql.TableEditor.
-func (editor TableEditor) Update(ctx *sql.Context, old sql.Row, new sql.Row) error {
+func (editor TableEditor) Update(ctx *sql.Context, old sql.LazyRow, new sql.LazyRow) error {
 	// I'm sure a bespoke UPDATE routine would be more efficient, but this will work for now
 	if err := editor.Delete(ctx, old); err != nil {
 		return err
@@ -381,7 +381,7 @@ func (editor TableEditor) Update(ctx *sql.Context, old sql.Row, new sql.Row) err
 }
 
 // Delete implements the interface sql.TableEditor.
-func (editor TableEditor) Delete(ctx *sql.Context, row sql.Row) error {
+func (editor TableEditor) Delete(ctx *sql.Context, row sql.LazyRow) error {
 	hash, err := HashRow(row)
 	if err != nil {
 		return err
@@ -391,10 +391,10 @@ func (editor TableEditor) Delete(ctx *sql.Context, row sql.Row) error {
 		// Grab the source columns
 		sourceCols := make([]interface{}, len(index.SourceCols))
 		for i, sourceCol := range index.SourceCols {
-			if sourceCol >= len(row) {
+			if sourceCol >= row.Count() {
 				panic(fmt.Sprintf("%v", row))
 			}
-			sourceCols[i] = row[sourceCol]
+			sourceCols[i] = row.SqlValue(sourceCol)
 		}
 
 		// Get the row count for this exact row's hash
@@ -411,7 +411,7 @@ func (editor TableEditor) Delete(ctx *sql.Context, row sql.Row) error {
 		// If there are duplicate rows, then we can decrement their counts and update the global counts
 		if rowCount > 1 {
 			// We'll update the row count since we're removing a row
-			if err = index.RowCount.Editor.Update(ctx, sql.Row{hash, rowCount, uniqueWords}, sql.Row{hash, rowCount - 1, uniqueWords}); err != nil {
+			if err = index.RowCount.Editor.Update(ctx, sql.NewSqlRowFromRow(sql.Row{hash, rowCount, uniqueWords}), sql.NewSqlRowFromRow(sql.Row{hash, rowCount - 1, uniqueWords})); err != nil {
 				return err
 			}
 			// We then need to update the global count, since it's dependent on the number of rows as well
@@ -432,7 +432,7 @@ func (editor TableEditor) Delete(ctx *sql.Context, row sql.Row) error {
 		}
 
 		// Remove the only entry from the row count table
-		if err = index.RowCount.Editor.Delete(ctx, sql.Row{hash, uint64(1), uniqueWords}); err != nil {
+		if err = index.RowCount.Editor.Delete(ctx, sql.NewSqlRowFromRow(sql.Row{hash, uint64(1), uniqueWords})); err != nil {
 			return err
 		}
 
@@ -441,7 +441,7 @@ func (editor TableEditor) Delete(ctx *sql.Context, row sql.Row) error {
 		if index.KeyCols.Type != KeyType_None {
 			keyCols = make([]interface{}, len(index.KeyCols.Positions))
 			for i, refCol := range index.KeyCols.Positions {
-				keyCols[i] = row[refCol]
+				keyCols[i] = row.SqlValue(refCol)
 			}
 		} else {
 			keyCols = []interface{}{hash}
@@ -462,7 +462,7 @@ func (editor TableEditor) Delete(ctx *sql.Context, row sql.Row) error {
 			positionRow[0] = word
 			positionRow = append(positionRow, keyCols...)
 			positionRow = append(positionRow, position)
-			if err = index.Position.Editor.Delete(ctx, positionRow); err != nil {
+			if err = index.Position.Editor.Delete(ctx, sql.NewSqlRowFromRow(positionRow)); err != nil {
 				return err
 			}
 		}
@@ -478,7 +478,7 @@ func (editor TableEditor) Delete(ctx *sql.Context, row sql.Row) error {
 			docCountRow[0] = word
 			docCountRow = append(docCountRow, keyCols...)
 			docCountRow = append(docCountRow, uint64(0)) // Since count isn't in the PK, this should be safe (caught by tests if not)
-			if err = index.DocCount.Editor.Delete(ctx, docCountRow); err != nil {
+			if err = index.DocCount.Editor.Delete(ctx, sql.NewSqlRowFromRow(docCountRow)); err != nil {
 				return err
 			}
 
@@ -531,7 +531,7 @@ func (TableEditor) getRowCount(ctx *sql.Context, ie IndexEditors, hash string) (
 	if err != nil {
 		return 0, 0, err
 	}
-	rows, err := sql.RowIterToRows(ctx, sql.NewTableRowIter(ctx, editorData, partIter))
+	rows, err := sql.RowIterToRows(ctx, sql.NewTableRowIter(ctx, editorData, partIter), 0)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -540,7 +540,7 @@ func (TableEditor) getRowCount(ctx *sql.Context, ie IndexEditors, hash string) (
 	} else if len(rows) > 1 {
 		return 0, 0, fmt.Errorf("somehow there are duplicate entries within the Full-Text row count table")
 	}
-	return rows[0][1].(uint64), rows[0][2].(uint64), nil
+	return rows[0].SqlValue(1).(uint64), rows[0].SqlValue(2).(uint64), nil
 }
 
 // updateGlobalCount either increments or decrements the global count of the given word for the
@@ -553,7 +553,7 @@ func (TableEditor) updateGlobalCount(ctx *sql.Context, ie IndexEditors, word str
 	if err != nil {
 		return err
 	}
-	rows, err := sql.RowIterToRows(ctx, sql.NewTableRowIter(ctx, editorData, partIter))
+	rows, err := sql.RowIterToRows(ctx, sql.NewTableRowIter(ctx, editorData, partIter), 0)
 	if err != nil {
 		return err
 	}
@@ -564,24 +564,24 @@ func (TableEditor) updateGlobalCount(ctx *sql.Context, ie IndexEditors, word str
 			return nil
 		}
 		// Our new count is 1, so we need to create a new entry
-		return ie.GlobalCount.Editor.Insert(ctx, sql.Row{word, uint64(1)})
+		return ie.GlobalCount.Editor.Insert(ctx, sql.NewSqlRowFromRow(sql.Row{word, uint64(1)}))
 	} else if len(rows) != 1 {
 		return fmt.Errorf("somehow there are duplicate entries within the Full-Text global count table")
 	}
 	row := rows[0]
-	oldCount := row[len(row)-1].(uint64)
+	oldCount := row.SqlValue(row.Count() - 1).(uint64)
 	// First we'll delete the existing row
 	if err = ie.GlobalCount.Editor.Delete(ctx, row); err != nil {
 		return err
 	}
 	// If we're incrementing, then we can add 1 to the old count
 	if increment {
-		if err = ie.GlobalCount.Editor.Insert(ctx, sql.Row{word, oldCount + 1}); err != nil {
+		if err = ie.GlobalCount.Editor.Insert(ctx, sql.NewSqlRowFromRow(sql.Row{word, oldCount + 1})); err != nil {
 			return err
 		}
 	} else if oldCount > 1 {
 		// We're decrementing from a number higher than 1, so we need to update the row
-		if err = ie.GlobalCount.Editor.Insert(ctx, sql.Row{word, oldCount - 1}); err != nil {
+		if err = ie.GlobalCount.Editor.Insert(ctx, sql.NewSqlRowFromRow(sql.Row{word, oldCount - 1})); err != nil {
 			return err
 		}
 	}

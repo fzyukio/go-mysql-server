@@ -37,7 +37,7 @@ func (err invalidJson) Error() string {
 // getMutableJSONVal returns a JSONValue from the given row and expression. The underling value is deeply copied so that
 // you are free to use the mutation functions on the returned value.
 // nil will be returned only if the inputs are nil. This will not return an error, so callers must check.
-func getMutableJSONVal(ctx *sql.Context, row sql.Row, json sql.Expression) (types.MutableJSON, error) {
+func getMutableJSONVal(ctx *sql.Context, row sql.LazyRow, json sql.Expression) (types.MutableJSON, error) {
 	doc, err := getJSONDocumentFromRow(ctx, row, json)
 	if err != nil || doc == nil {
 		return nil, err
@@ -49,13 +49,13 @@ func getMutableJSONVal(ctx *sql.Context, row sql.Row, json sql.Expression) (type
 // getSearchableJSONVal returns a SearchableJSONValue from the given row and expression. The underlying value is not copied
 // so it is intended to be used for read-only operations.
 // nil will be returned only if the inputs are nil. This will not return an error, so callers must check.
-func getSearchableJSONVal(ctx *sql.Context, row sql.Row, json sql.Expression) (sql.JSONWrapper, error) {
+func getSearchableJSONVal(ctx *sql.Context, row sql.LazyRow, json sql.Expression) (sql.JSONWrapper, error) {
 	return getJSONDocumentFromRow(ctx, row, json)
 }
 
 // getJSONDocumentFromRow returns a JSONDocument from the given row and expression. Helper function only intended to be
 // used by functions in this file.
-func getJSONDocumentFromRow(ctx *sql.Context, row sql.Row, json sql.Expression) (sql.JSONWrapper, error) {
+func getJSONDocumentFromRow(ctx *sql.Context, row sql.LazyRow, json sql.Expression) (sql.JSONWrapper, error) {
 	js, err := json.Eval(ctx, row)
 	if err != nil || js == nil {
 		return nil, err
@@ -116,7 +116,7 @@ type pathValPair struct {
 }
 
 // buildPath builds a path from the given row and expression
-func buildPath(ctx *sql.Context, pathExp sql.Expression, row sql.Row) (*string, error) {
+func buildPath(ctx *sql.Context, pathExp sql.Expression, row sql.LazyRow) (*string, error) {
 	path, err := pathExp.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -133,7 +133,7 @@ func buildPath(ctx *sql.Context, pathExp sql.Expression, row sql.Row) (*string, 
 
 // buildPathValue builds a pathValPair from the given row and expressions. This is a common pattern in json methods to have
 // pairs of arguments, and this ensures they are of the right type, non-nil, and they wrapped in a struct as a unit.
-func buildPathValue(ctx *sql.Context, pathExp sql.Expression, valExp sql.Expression, row sql.Row) (*pathValPair, error) {
+func buildPathValue(ctx *sql.Context, pathExp sql.Expression, valExp sql.Expression, row sql.LazyRow) (*pathValPair, error) {
 	path, err := buildPath(ctx, pathExp, row)
 	if err != nil {
 		return nil, err

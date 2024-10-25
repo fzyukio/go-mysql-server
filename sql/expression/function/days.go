@@ -78,7 +78,7 @@ func countLeapYears(year int) int {
 }
 
 // Eval implements sql.Expression
-func (t *ToDays) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (t *ToDays) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	date, err := t.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -204,7 +204,7 @@ func daysToMonth(year, days int64) (int64, int64) {
 }
 
 // Eval implements sql.Expression
-func (f *FromDays) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *FromDays) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	d, err := f.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -288,7 +288,7 @@ func lastDay(year, month int) int {
 }
 
 // Eval implements sql.Expression
-func (f *LastDay) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *LastDay) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	date, err := f.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err

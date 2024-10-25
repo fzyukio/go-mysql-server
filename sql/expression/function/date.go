@@ -113,7 +113,7 @@ func (d *DateAdd) WithChildren(children ...sql.Expression) (sql.Expression, erro
 }
 
 // Eval implements the sql.Expression interface.
-func (d *DateAdd) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *DateAdd) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	date, err := d.Date.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -260,7 +260,7 @@ func (d *DateSub) WithChildren(children ...sql.Expression) (sql.Expression, erro
 }
 
 // Eval implements the sql.Expression interface.
-func (d *DateSub) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *DateSub) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	date, err := d.Date.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -361,8 +361,8 @@ func (t *DatetimeConversion) IsNullable() bool {
 	return false
 }
 
-func (t *DatetimeConversion) Eval(ctx *sql.Context, r sql.Row) (interface{}, error) {
-	e, err := t.Date.Eval(ctx, r)
+func (t *DatetimeConversion) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
+	e, err := t.Date.Eval(ctx, row)
 	if err != nil {
 		return nil, err
 	}
@@ -540,7 +540,7 @@ func (ut *UnixTimestamp) WithChildren(children ...sql.Expression) (sql.Expressio
 	return NewUnixTimestamp(children...)
 }
 
-func (ut *UnixTimestamp) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (ut *UnixTimestamp) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	if ut.Date == nil {
 		return toUnixTimestamp(ctx.QueryTime(), ut.Type()), nil
 	}
@@ -643,7 +643,7 @@ func (*FromUnixtime) CollationCoercibility(ctx *sql.Context) (collation sql.Coll
 	return sql.Collation_binary, 5
 }
 
-func (r *FromUnixtime) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (r *FromUnixtime) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := r.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -696,13 +696,13 @@ func NewCurrentDate() sql.Expression {
 	}
 }
 
-func currDateLogic(ctx *sql.Context, _ sql.Row) (interface{}, error) {
+func currDateLogic(ctx *sql.Context, _ sql.LazyRow) (interface{}, error) {
 	t := ctx.QueryTime()
 	return fmt.Sprintf("%d-%02d-%02d", t.Year(), t.Month(), t.Day()), nil
 }
 
 // Eval implements sql.Expression
-func (c CurrDate) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (c CurrDate) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return currDateLogic(ctx, row)
 }
 

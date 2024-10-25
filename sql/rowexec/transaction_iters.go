@@ -23,19 +23,19 @@ import (
 	"github.com/dolthub/go-mysql-server/sql/plan"
 )
 
-type rowFunc func(ctx *sql.Context) (sql.Row, error)
+type rowFunc func(ctx *sql.Context, row sql.LazyRow) error
 
 type lazyRowIter struct {
 	next rowFunc
 }
 
-func (i *lazyRowIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *lazyRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if i.next != nil {
-		res, err := i.next(ctx)
+		err := i.next(ctx, row)
 		i.next = nil
-		return res, err
+		return err
 	}
-	return nil, io.EOF
+	return io.EOF
 }
 
 func (i *lazyRowIter) Close(ctx *sql.Context) error {
@@ -74,8 +74,8 @@ type TransactionCommittingIter struct {
 	transactionDatabase string
 }
 
-func (t *TransactionCommittingIter) Next(ctx *sql.Context) (sql.Row, error) {
-	return t.childIter.Next(ctx)
+func (t *TransactionCommittingIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	return t.childIter.Next(ctx, nil)
 }
 
 func (t *TransactionCommittingIter) Close(ctx *sql.Context) error {

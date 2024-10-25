@@ -488,24 +488,25 @@ func (h *Handler) doQuery(
 func resultForOkIter(ctx *sql.Context, iter sql.RowIter) (*sqltypes.Result, error) {
 	defer trace.StartRegion(ctx, "Handler.resultForOkIter").End()
 
-	row, err := iter.Next(ctx)
+	err := iter.Next(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	_, err = iter.Next(ctx)
+	row := sql.NewSqlRow(1)
+	err = iter.Next(ctx, row)
 	if err != io.EOF {
 		return nil, fmt.Errorf("result schema iterator returned more than one row")
 	}
 	if err := iter.Close(ctx); err != nil {
 		return nil, err
 	}
-	return resultFromOkResult(row[0].(types.OkResult)), nil
+	return resultFromOkResult(row.SqlValue(0).(types.OkResult)), nil
 }
 
 // resultForEmptyIter ensures that an expected empty iterator returns no rows.
 func resultForEmptyIter(ctx *sql.Context, iter sql.RowIter, resultFields []*querypb.Field) (*sqltypes.Result, error) {
 	defer trace.StartRegion(ctx, "Handler.resultForEmptyIter").End()
-	if _, err := iter.Next(ctx); err != io.EOF {
+	if err := iter.Next(ctx, nil); err != io.EOF {
 		return nil, fmt.Errorf("result schema iterator returned more than zero rows")
 	}
 	if err := iter.Close(ctx); err != nil {
@@ -548,14 +549,15 @@ func GetDeferredProjections(iter sql.RowIter) (sql.RowIter, []sql.Expression) {
 // resultForMax1RowIter ensures that an empty iterator returns at most one row
 func resultForMax1RowIter(ctx *sql.Context, schema sql.Schema, iter sql.RowIter, resultFields []*querypb.Field) (*sqltypes.Result, error) {
 	defer trace.StartRegion(ctx, "Handler.resultForMax1RowIter").End()
-	row, err := iter.Next(ctx)
+	err := iter.Next(ctx, nil)
 	if err == io.EOF {
 		return &sqltypes.Result{Fields: resultFields}, nil
 	} else if err != nil {
 		return nil, err
 	}
 
-	if _, err = iter.Next(ctx); err != io.EOF {
+	row := sql.NewSqlRow(0)
+	if err = iter.Next(ctx, row); err != io.EOF {
 		return nil, fmt.Errorf("result max1Row iterator returned more than one row")
 	}
 	if err := iter.Close(ctx); err != nil {
@@ -596,7 +598,7 @@ func (h *Handler) resultForDefaultIter(
 
 	// Read rows off the row iterator and send them to the row channel.
 	iter, projs := GetDeferredProjections(iter)
-	var rowChan = make(chan sql.Row, 512)
+	var rowChan = make(chan sql.LazyRow, 512)
 	eg.Go(func() error {
 		defer pan2err()
 		defer wg.Done()
@@ -606,7 +608,8 @@ func (h *Handler) resultForDefaultIter(
 			case <-ctx.Done():
 				return nil
 			default:
-				row, err := iter.Next(ctx)
+				row := sql.NewSqlRow(0)
+				err := iter.Next(ctx, row)
 				if err == io.EOF {
 					return nil
 				}
@@ -669,7 +672,7 @@ func (h *Handler) resultForDefaultIter(
 					if len(r.Rows) > 0 {
 						panic("Got OkResult mixed with RowResult")
 					}
-					r = resultFromOkResult(row[0].(types.OkResult))
+					r = resultFromOkResult(row.SqlValue(0).(types.OkResult))
 					continue
 				}
 
@@ -936,7 +939,7 @@ func updateMaxUsedConnectionsStatusVariable() {
 	}()
 }
 
-func RowToSQL(ctx *sql.Context, sch sql.Schema, row sql.Row, projs []sql.Expression) ([]sqltypes.Value, error) {
+func RowToSQL(ctx *sql.Context, sch sql.Schema, row sql.LazyRow, projs []sql.Expression) ([]sqltypes.Value, error) {
 	// need to make sure the schema is not null as some plan schema is defined as null (e.g. IfElseBlock)
 	if len(sch) == 0 {
 		return []sqltypes.Value{}, nil
@@ -945,12 +948,12 @@ func RowToSQL(ctx *sql.Context, sch sql.Schema, row sql.Row, projs []sql.Express
 	outVals := make([]sqltypes.Value, len(sch))
 	if len(projs) == 0 {
 		for i, col := range sch {
-			if row[i] == nil {
+			if row.SqlValue(i) == nil {
 				outVals[i] = sqltypes.NULL
 				continue
 			}
 			var err error
-			outVals[i], err = col.Type.SQL(ctx, nil, row[i])
+			outVals[i], err = col.Type.SQL(ctx, nil, row.SqlValue(i))
 			if err != nil {
 				return nil, err
 			}

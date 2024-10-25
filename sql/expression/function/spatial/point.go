@@ -83,7 +83,7 @@ func (p *Point) WithChildren(children ...sql.Expression) (sql.Expression, error)
 }
 
 // Eval implements the sql.Expression interface.
-func (p *Point) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (p *Point) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	// Evaluate X
 	x, err := p.X.Eval(ctx, row)
 	if err != nil {

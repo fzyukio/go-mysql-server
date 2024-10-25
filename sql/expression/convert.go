@@ -254,7 +254,7 @@ func (c *Convert) WithChildren(children ...sql.Expression) (sql.Expression, erro
 }
 
 // Eval implements the Expression interface.
-func (c *Convert) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (c *Convert) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := c.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err

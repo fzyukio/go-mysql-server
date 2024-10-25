@@ -46,18 +46,18 @@ func TestShowTables(t *testing.T) {
 	iter, err := DefaultBuilder.Build(ctx, resolvedShowTables, nil)
 	require.NoError(err)
 
-	res, err := iter.Next(ctx)
+	err := iter.Next(ctx, nil)
 	require.NoError(err)
 	require.Equal("test1", res[0])
 
-	res, err = iter.Next(ctx)
+	err = iter.Next(ctx, nil)
 	require.NoError(err)
 	require.Equal("test2", res[0])
 
-	res, err = iter.Next(ctx)
+	err = iter.Next(ctx, nil)
 	require.NoError(err)
 	require.Equal("test3", res[0])
 
-	_, err = iter.Next(ctx)
+	err = iter.Next(ctx, nil)
 	require.Equal(io.EOF, err)
 }

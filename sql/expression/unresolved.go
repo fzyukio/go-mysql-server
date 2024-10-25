@@ -93,7 +93,7 @@ func (uc *UnresolvedColumn) String() string {
 }
 
 // Eval implements the Expression interface.
-func (*UnresolvedColumn) Eval(ctx *sql.Context, r sql.Row) (interface{}, error) {
+func (*UnresolvedColumn) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	panic("unresolved column is a placeholder node, but Eval was called")
 }
 
@@ -194,7 +194,7 @@ func (utf *UnresolvedTableFunction) Children() []sql.Node {
 }
 
 // RowIter implements the Node interface
-func (utf *UnresolvedTableFunction) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (utf *UnresolvedTableFunction) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	return nil, ErrUnresolvedTableFunction.New()
 }
 
@@ -324,7 +324,7 @@ func (uf *UnresolvedFunction) DebugString() string {
 }
 
 // Eval implements the Expression interface.
-func (*UnresolvedFunction) Eval(ctx *sql.Context, r sql.Row) (interface{}, error) {
+func (*UnresolvedFunction) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	panic("unresolved function is a placeholder node, but Eval was called")
 }
 

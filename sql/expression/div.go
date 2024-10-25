@@ -108,7 +108,7 @@ func (d *Div) WithChildren(children ...sql.Expression) (sql.Expression, error) {
 }
 
 // Eval implements the Expression interface.
-func (d *Div) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *Div) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	lval, rval, err := d.evalLeftRight(ctx, row)
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func (d *Div) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	return result, nil
 }
 
-func (d *Div) evalLeftRight(ctx *sql.Context, row sql.Row) (interface{}, interface{}, error) {
+func (d *Div) evalLeftRight(ctx *sql.Context, row sql.LazyRow) (interface{}, interface{}, error) {
 	var lval, rval interface{}
 	var err error
 
@@ -504,7 +504,7 @@ func isOutermostDiv(e sql.Expression, d, dScale int32) bool {
 
 // getFinalScale returns the final scale of the result value.
 // it traverses both the left and right nodes looking for Div, Arithmetic, and Literal nodes
-func getFinalScale(ctx *sql.Context, row sql.Row, expr sql.Expression, divOpCnt int32) (int32, bool) {
+func getFinalScale(ctx *sql.Context, row sql.LazyRow, expr sql.Expression, divOpCnt int32) (int32, bool) {
 	if expr == nil {
 		return 0, false
 	}
@@ -685,7 +685,7 @@ func (i *IntDiv) WithChildren(children ...sql.Expression) (sql.Expression, error
 }
 
 // Eval implements the Expression interface.
-func (i *IntDiv) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (i *IntDiv) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	lval, rval, err := i.evalLeftRight(ctx, row)
 	if err != nil {
 		return nil, err
@@ -700,7 +700,7 @@ func (i *IntDiv) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	return intDiv(ctx, lval, rval)
 }
 
-func (i *IntDiv) evalLeftRight(ctx *sql.Context, row sql.Row) (interface{}, interface{}, error) {
+func (i *IntDiv) evalLeftRight(ctx *sql.Context, row sql.LazyRow) (interface{}, interface{}, error) {
 	var lval, rval interface{}
 	var err error
 

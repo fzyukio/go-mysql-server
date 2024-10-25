@@ -51,7 +51,7 @@ func (f *IfNull) Description() string {
 }
 
 // Eval implements the Expression interface.
-func (f *IfNull) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *IfNull) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	left, err := f.LeftChild.Eval(ctx, row)
 	if err != nil {
 		return nil, err

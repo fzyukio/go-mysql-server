@@ -83,8 +83,8 @@ func (expr *MatchAgainst) Children() []sql.Expression {
 }
 
 // Eval implements sql.Expression
-func (expr *MatchAgainst) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	row = row[:expr.expectedRowLen]
+func (expr *MatchAgainst) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
+	row = row.SelectRange(0, expr.expectedRowLen)
 	switch expr.SearchModifier {
 	case fulltext.SearchModifier_NaturalLanguage:
 		return expr.inNaturalLanguageMode(ctx, row)
@@ -214,7 +214,7 @@ func (expr *MatchAgainst) ColumnsAsGetFields() []*GetField {
 // value is the relevancy. When used under a FILTER node, a non-zero result is interpreted as "true", while a zero result
 // is interpreted as false. It is assumed that incoming rows will exactly match the schema of the parent table, meaning
 // that we cannot take projected rows.
-func (expr *MatchAgainst) inNaturalLanguageMode(ctx *sql.Context, row sql.Row) (float32, error) {
+func (expr *MatchAgainst) inNaturalLanguageMode(ctx *sql.Context, row sql.LazyRow) (float32, error) {
 	// The general flow of this function is as follows:
 	// 1) Perform the one-time setup by evaluating the match expression (string literal) and constructing a parser.
 	//    a) Evaluate the match expression, which should be a string literal.
@@ -304,7 +304,7 @@ func (expr *MatchAgainst) inNaturalLanguageMode(ctx *sql.Context, row sql.Row) (
 			ranges := make(sql.MySQLRange, 1+len(expr.KeyCols.Positions))
 			ranges[0] = sql.ClosedRangeColumnExpr(wordStr, wordStr, expr.DocCountTable.Schema()[0].Type)
 			for i, keyColPos := range expr.KeyCols.Positions {
-				ranges[i+1] = sql.ClosedRangeColumnExpr(row[keyColPos], row[keyColPos], expr.DocCountTable.Schema()[i+1].Type)
+				ranges[i+1] = sql.ClosedRangeColumnExpr(row.SqlValue(keyColPos), row.SqlValue(keyColPos), expr.DocCountTable.Schema()[i+1].Type)
 			}
 			lookup = sql.IndexLookup{Ranges: sql.MySQLRangeCollection{ranges}, Index: expr.docCountIndex}
 		} else {
@@ -325,7 +325,7 @@ func (expr *MatchAgainst) inNaturalLanguageMode(ctx *sql.Context, row sql.Row) (
 		if err != nil {
 			return 0, err
 		}
-		docCountRows, err := sql.RowIterToRows(ctx, sql.NewTableRowIter(ctx, editorData, partIter))
+		docCountRows, err := sql.RowIterToRows(ctx, sql.NewTableRowIter(ctx, editorData, partIter), 0)
 		if err != nil {
 			return 0, err
 		}
@@ -336,7 +336,7 @@ func (expr *MatchAgainst) inNaturalLanguageMode(ctx *sql.Context, row sql.Row) (
 			return 0, fmt.Errorf("somehow there are duplicate entries within the Full-Text doc count table")
 		}
 		docCountRow := docCountRows[0]
-		docCount := float64(docCountRow[len(docCountRow)-1].(uint64))
+		docCount := float64(docCountRow.SqlValue(docCountRow.Count() - 1).(uint64))
 		if docCount == 0 {
 			// We've got an empty document count, so the word does not match (so it should have been deleted)
 			continue
@@ -357,7 +357,7 @@ func (expr *MatchAgainst) inNaturalLanguageMode(ctx *sql.Context, row sql.Row) (
 		if err != nil {
 			return 0, err
 		}
-		globalCountRows, err := sql.RowIterToRows(ctx, sql.NewTableRowIter(ctx, editorData, partIter))
+		globalCountRows, err := sql.RowIterToRows(ctx, sql.NewTableRowIter(ctx, editorData, partIter), 0)
 		if err != nil {
 			return 0, err
 		}
@@ -383,7 +383,7 @@ func (expr *MatchAgainst) inNaturalLanguageMode(ctx *sql.Context, row sql.Row) (
 		if err != nil {
 			return 0, err
 		}
-		rowCountRows, err := sql.RowIterToRows(ctx, sql.NewTableRowIter(ctx, editorData, partIter))
+		rowCountRows, err := sql.RowIterToRows(ctx, sql.NewTableRowIter(ctx, editorData, partIter), 0)
 		if err != nil {
 			return 0, err
 		}
@@ -396,8 +396,8 @@ func (expr *MatchAgainst) inNaturalLanguageMode(ctx *sql.Context, row sql.Row) (
 
 		// Calculate the relevancy (partially based on an old MySQL implementation)
 		// https://web.archive.org/web/20220122170304/http://dev.mysql.com/doc/internals/en/full-text-search.html
-		globalCount := float64(globalCountRow[len(globalCountRow)-1].(uint64))
-		uniqueWords := float64(rowCountRow[2].(uint64))
+		globalCount := float64(globalCountRow.SqlValue(globalCountRow.Count() - 1).(uint64))
+		uniqueWords := float64(rowCountRow.SqlValue(2).(uint64))
 		base := math.Log(docCount) + 1
 		normFactor := uniqueWords / (1 + 0.115*uniqueWords)
 		globalMult := math.Log(float64(expr.parentRowCount)/globalCount) + 1
@@ -415,16 +415,16 @@ func (expr *MatchAgainst) inNaturalLanguageMode(ctx *sql.Context, row sql.Row) (
 }
 
 // inNaturalLanguageModeWithQueryExpansion calculates the result using "IN NATURAL LANGUAGE MODE WITH QUERY EXPANSION".
-func (expr *MatchAgainst) inNaturalLanguageModeWithQueryExpansion(ctx *sql.Context, row sql.Row) (float32, error) {
+func (expr *MatchAgainst) inNaturalLanguageModeWithQueryExpansion(ctx *sql.Context, row sql.LazyRow) (float32, error) {
 	return 0, fmt.Errorf("'IN NATURAL LANGUAGE MODE WITH QUERY EXPANSION' has not yet been implemented")
 }
 
 // inBooleanMode calculates the result using "IN BOOLEAN MODE".
-func (expr *MatchAgainst) inBooleanMode(ctx *sql.Context, row sql.Row) (float32, error) {
+func (expr *MatchAgainst) inBooleanMode(ctx *sql.Context, row sql.LazyRow) (float32, error) {
 	return 0, fmt.Errorf("'IN BOOLEAN MODE' has not yet been implemented")
 }
 
 // withQueryExpansion calculates the result using "WITH QUERY EXPANSION".
-func (expr *MatchAgainst) withQueryExpansion(ctx *sql.Context, row sql.Row) (float32, error) {
+func (expr *MatchAgainst) withQueryExpansion(ctx *sql.Context, row sql.LazyRow) (float32, error) {
 	return 0, fmt.Errorf("'WITH QUERY EXPANSION' has not yet been implemented")
 }

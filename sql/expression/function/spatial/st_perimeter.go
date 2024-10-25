@@ -74,7 +74,7 @@ func (p *Perimeter) WithChildren(children ...sql.Expression) (sql.Expression, er
 }
 
 // Eval implements the sql.Expression interface.
-func (p *Perimeter) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (p *Perimeter) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	// Evaluate argument
 	v1, err := p.ChildExpressions[0].Eval(ctx, row)
 	if err != nil {

@@ -73,7 +73,7 @@ func (w *With) DebugString() string {
 	return pr.String()
 }
 
-func (w *With) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (w *With) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	panic("Cannot call RowIter on With node")
 }
 

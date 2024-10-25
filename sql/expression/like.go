@@ -73,7 +73,7 @@ func (l *Like) CollationCoercibility(ctx *sql.Context) (collation sql.CollationI
 }
 
 // Eval implements the sql.Expression interface.
-func (l *Like) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (l *Like) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	span, ctx := ctx.Span("expression.Like")
 	defer span.End()
 
@@ -127,7 +127,7 @@ func (l *Like) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	return ok, nil
 }
 
-func (l *Like) evalRight(ctx *sql.Context, row sql.Row) (right *string, escape rune, err error) {
+func (l *Like) evalRight(ctx *sql.Context, row sql.LazyRow) (right *string, escape rune, err error) {
 	rightVal, err := l.RightChild.Eval(ctx, row)
 	if err != nil || rightVal == nil {
 		return nil, 0, err

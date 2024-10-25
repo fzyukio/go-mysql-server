@@ -112,7 +112,7 @@ func (n *CachedResults) CollationCoercibility(ctx *sql.Context) (collation sql.C
 	return sql.GetCoercibility(ctx, n.Child)
 }
 
-func (n *CachedResults) GetCachedResults() []sql.Row {
+func (n *CachedResults) GetCachedResults() []sql.LazyRow {
 	return CachedResultsGlobalCache.getCachedResultsById(n.Id)
 }
 
@@ -130,7 +130,7 @@ type emptyCacheIter struct{}
 
 var _ sql.RowIter = (*emptyCacheIter)(nil)
 
-func (i *emptyCacheIter) Next(ctx *sql.Context) (sql.Row, error) { return nil, io.EOF }
+func (i *emptyCacheIter) Next(ctx *sql.Context, row sql.LazyRow) error { return io.EOF }
 
 func (i *emptyCacheIter) Close(ctx *sql.Context) error { return nil }
 
@@ -169,7 +169,7 @@ func (crm *cachedResultsManager) allocateUniqueId() uint64 {
 	return atomic.AddUint64(&(crm.cachedResultsUniqueIdCounter), 1)
 }
 
-func (crm *cachedResultsManager) getCachedResultsById(id uint64) []sql.Row {
+func (crm *cachedResultsManager) getCachedResultsById(id uint64) []sql.LazyRow {
 	crm.mutex.Lock()
 	defer crm.mutex.Unlock()
 

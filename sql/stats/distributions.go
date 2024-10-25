@@ -39,9 +39,9 @@ type normDistIter struct {
 
 var _ sql.RowIter = (*normDistIter)(nil)
 
-func (d *normDistIter) Next(*sql.Context) (sql.Row, error) {
+func (d *normDistIter) Next(*sql.Context, sql.LazyRow) error {
 	if d.i > d.cnt {
-		return nil, io.EOF
+		return io.EOF
 	}
 	d.i++
 	var ret sql.Row
@@ -53,7 +53,7 @@ func (d *normDistIter) Next(*sql.Context) (sql.Row, error) {
 		}
 		ret = append(ret, val)
 	}
-	return ret, nil
+	return nil
 }
 
 func (d *normDistIter) Close(*sql.Context) error {
@@ -69,9 +69,9 @@ type expDistIter struct {
 
 var _ sql.RowIter = (*expDistIter)(nil)
 
-func (d *expDistIter) Next(*sql.Context) (sql.Row, error) {
+func (d *expDistIter) Next(*sql.Context, sql.LazyRow) error {
 	if d.i > d.cnt {
-		return nil, io.EOF
+		return io.EOF
 	}
 	d.i++
 	var ret sql.Row
@@ -83,7 +83,7 @@ func (d *expDistIter) Next(*sql.Context) (sql.Row, error) {
 		}
 		ret = append(ret, val)
 	}
-	return ret, nil
+	return nil
 }
 
 func (d *expDistIter) Close(*sql.Context) error {

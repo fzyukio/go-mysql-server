@@ -65,7 +65,7 @@ func (u *Use) IsReadOnly() bool {
 func (Use) Schema() sql.Schema { return nil }
 
 // RowIter implements the sql.Node interface.
-func (u *Use) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (u *Use) RowIter(ctx *sql.Context, row sql.LazyRow) (sql.RowIter, error) {
 	// We want to return to the session interface the same database instance they gave us, unwrap it if necessary
 	db := u.db
 	if pdb, ok := db.(mysql_db.PrivilegedDatabase); ok {

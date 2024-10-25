@@ -123,10 +123,7 @@ func (p *Pad) WithChildren(children ...sql.Expression) (sql.Expression, error) {
 }
 
 // Eval implements the Expression interface.
-func (p *Pad) Eval(
-	ctx *sql.Context,
-	row sql.Row,
-) (interface{}, error) {
+func (p *Pad) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	str, err := p.str.Eval(ctx, row)
 	if err != nil {
 		return nil, err

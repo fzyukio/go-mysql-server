@@ -77,7 +77,7 @@ func (js *JSONUnquote) WithChildren(children ...sql.Expression) (sql.Expression,
 }
 
 // Eval implements the Expression interface.
-func (js *JSONUnquote) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (js *JSONUnquote) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	typ := js.Child.Type()
 	if typ != types.Null && !types.IsText(typ) && !types.IsJSON(typ) {
 		return nil, sql.ErrInvalidType.New(typ)

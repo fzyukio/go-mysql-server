@@ -33,10 +33,10 @@ func NewTableRowIter(ctx *Context, table Table, partitions PartitionIter) *Table
 	return &TableRowIter{table: table, partitions: partitions}
 }
 
-func (i *TableRowIter) Next(ctx *Context) (Row, error) {
+func (i *TableRowIter) Next(ctx *Context, row LazyRow) error {
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return ctx.Err()
 	default:
 	}
 	if i.partition == nil {
@@ -44,11 +44,11 @@ func (i *TableRowIter) Next(ctx *Context) (Row, error) {
 		if err != nil {
 			if err == io.EOF {
 				if e := i.partitions.Close(ctx); e != nil {
-					return nil, e
+					return e
 				}
 			}
 
-			return nil, err
+			return err
 		}
 
 		i.partition = partition
@@ -57,23 +57,23 @@ func (i *TableRowIter) Next(ctx *Context) (Row, error) {
 	if i.rows == nil {
 		rows, err := i.table.PartitionRows(ctx, i.partition)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		i.rows = rows
 	}
 
-	row, err := i.rows.Next(ctx)
+	err := i.rows.Next(ctx, nil)
 	if err != nil && err == io.EOF {
 		if err = i.rows.Close(ctx); err != nil {
-			return nil, err
+			return err
 		}
 
 		i.partition = nil
 		i.rows = nil
-		row, err = i.Next(ctx)
+		err = i.Next(ctx, nil)
 	}
-	return row, err
+	return err
 }
 
 func (i *TableRowIter) Close(ctx *Context) error {

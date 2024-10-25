@@ -73,7 +73,7 @@ func (s *SwapXY) WithChildren(children ...sql.Expression) (sql.Expression, error
 }
 
 // Eval implements the sql.Expression interface.
-func (s *SwapXY) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (s *SwapXY) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	// Evaluate child
 	val, err := s.Child.Eval(ctx, row)
 	if err != nil {

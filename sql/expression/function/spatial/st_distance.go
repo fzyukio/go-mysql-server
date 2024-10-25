@@ -139,7 +139,7 @@ func calcDist(g1, g2 types.GeometryValue) interface{} {
 }
 
 // Eval implements the sql.Expression interface.
-func (d *Distance) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *Distance) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	g1, err := d.ChildExpressions[0].Eval(ctx, row)
 	if err != nil {
 		return nil, err

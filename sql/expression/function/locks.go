@@ -32,7 +32,7 @@ var ErrIllegalLockNameArgType = errors.NewKind("Illegal parameter data type %s f
 // lockFuncLogic is the logic executed when one of the single argument named lock functions is executed
 type lockFuncLogic func(ctx *sql.Context, ls *sql.LockSubsystem, lockName string) (interface{}, error)
 
-func (nl *NamedLockFunction) evalLockLogic(ctx *sql.Context, fn lockFuncLogic, row sql.Row) (interface{}, error) {
+func (nl *NamedLockFunction) evalLockLogic(ctx *sql.Context, fn lockFuncLogic, row sql.LazyRow) (interface{}, error) {
 	lock, err := nl.GetLockName(ctx, row)
 	if err != nil {
 		return nil, err
@@ -58,7 +58,7 @@ func (nl *NamedLockFunction) FunctionName() string {
 }
 
 // Eval implements the Expression interface.
-func (nl *NamedLockFunction) GetLockName(ctx *sql.Context, row sql.Row) (*string, error) {
+func (nl *NamedLockFunction) GetLockName(ctx *sql.Context, row sql.LazyRow) (*string, error) {
 	if nl.Child == nil {
 		return nil, nil
 	}
@@ -147,7 +147,7 @@ func (*IsFreeLock) CollationCoercibility(ctx *sql.Context) (collation sql.Collat
 	return sql.Collation_binary, 5
 }
 
-func (i *IsFreeLock) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (i *IsFreeLock) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return i.evalLockLogic(ctx, IsFreeLockFunc, row)
 }
 
@@ -189,7 +189,7 @@ func (*IsUsedLock) CollationCoercibility(ctx *sql.Context) (collation sql.Collat
 	return sql.Collation_binary, 5
 }
 
-func (i *IsUsedLock) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (i *IsUsedLock) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return i.evalLockLogic(ctx, IsUsedLockFunc, row)
 }
 
@@ -231,7 +231,7 @@ func (*ReleaseLock) CollationCoercibility(ctx *sql.Context) (collation sql.Colla
 	return sql.Collation_binary, 5
 }
 
-func (i *ReleaseLock) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (i *ReleaseLock) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return i.evalLockLogic(ctx, ReleaseLockFunc, row)
 }
 
@@ -294,7 +294,7 @@ func (gl *GetLock) Description() string {
 }
 
 // Eval implements the Expression interface.
-func (gl *GetLock) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (gl *GetLock) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	if gl.LeftChild == nil {
 		return nil, nil
 	}
@@ -408,7 +408,7 @@ func (ReleaseAllLocks) CollationCoercibility(ctx *sql.Context) (collation sql.Co
 	return sql.Collation_binary, 5
 }
 
-func (r ReleaseAllLocks) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (r ReleaseAllLocks) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return r.ls.ReleaseAll(ctx)
 }
 

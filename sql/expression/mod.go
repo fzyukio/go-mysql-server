@@ -109,7 +109,7 @@ func (m *Mod) WithChildren(children ...sql.Expression) (sql.Expression, error) {
 }
 
 // Eval implements the Expression interface.
-func (m *Mod) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (m *Mod) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	lval, rval, err := m.evalLeftRight(ctx, row)
 	if err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func (m *Mod) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	return mod(ctx, lval, rval)
 }
 
-func (m *Mod) evalLeftRight(ctx *sql.Context, row sql.Row) (interface{}, interface{}, error) {
+func (m *Mod) evalLeftRight(ctx *sql.Context, row sql.LazyRow) (interface{}, interface{}, error) {
 	var lval, rval interface{}
 	var err error
 

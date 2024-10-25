@@ -80,12 +80,12 @@ func NewCountingRowIter(iter RowIter, describable WithDescribeStats) CountingRow
 	}
 }
 
-func (c CountingRowIter) Next(ctx *Context) (Row, error) {
-	res, err := c.RowIter.Next(ctx)
+func (c CountingRowIter) Next(ctx *Context, row LazyRow) error {
+	err := c.RowIter.Next(ctx, row)
 	if err == nil {
 		c.Stats.ActualRowCount++
 	}
-	return res, err
+	return err
 }
 
 type Describable interface {

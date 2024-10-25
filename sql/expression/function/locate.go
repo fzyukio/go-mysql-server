@@ -90,7 +90,7 @@ func (l *Locate) DebugString() string {
 }
 
 // Eval implements the sql.Expression interface.
-func (l *Locate) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (l *Locate) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	if len(l.ChildExpressions) < 2 || len(l.ChildExpressions) > 3 {
 		return nil, nil
 	}

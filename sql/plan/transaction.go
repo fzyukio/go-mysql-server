@@ -69,7 +69,7 @@ func NewStartTransaction(transactionChar sql.TransactionCharacteristic) *StartTr
 }
 
 // RowIter implements the sql.Node interface.
-func (s *StartTransaction) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (s *StartTransaction) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	ts, ok := ctx.Session.(sql.TransactionSession)
 	if !ok {
 		return sql.RowsToRowIter(), nil
@@ -126,7 +126,7 @@ func NewCommit() *Commit {
 }
 
 // RowIter implements the sql.Node interface.
-func (c *Commit) RowIter(ctx *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (c *Commit) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	ts, ok := ctx.Session.(sql.TransactionSession)
 	if !ok {
 		return sql.RowsToRowIter(), nil
@@ -175,7 +175,7 @@ func NewRollback() *Rollback {
 }
 
 // RowIter implements the sql.Node interface.
-func (r *Rollback) RowIter(ctx *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (r *Rollback) RowIter(ctx *sql.Context, row sql.LazyRow) (sql.RowIter, error) {
 	ts, ok := ctx.Session.(sql.TransactionSession)
 	if !ok {
 		return sql.RowsToRowIter(), nil
@@ -226,7 +226,7 @@ func NewCreateSavepoint(name string) *CreateSavepoint {
 }
 
 // RowIter implements the sql.Node interface.
-func (c *CreateSavepoint) RowIter(ctx *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (c *CreateSavepoint) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	ts, ok := ctx.Session.(sql.TransactionSession)
 	if !ok {
 		return sql.RowsToRowIter(), nil
@@ -275,7 +275,7 @@ func NewRollbackSavepoint(name string) *RollbackSavepoint {
 }
 
 // RowIter implements the sql.Node interface.
-func (r *RollbackSavepoint) RowIter(ctx *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (r *RollbackSavepoint) RowIter(ctx *sql.Context, row sql.LazyRow) (sql.RowIter, error) {
 	ts, ok := ctx.Session.(sql.TransactionSession)
 	if !ok {
 		return sql.RowsToRowIter(), nil
@@ -324,7 +324,7 @@ func NewReleaseSavepoint(name string) *ReleaseSavepoint {
 }
 
 // RowIter implements the sql.Node interface.
-func (r *ReleaseSavepoint) RowIter(ctx *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (r *ReleaseSavepoint) RowIter(ctx *sql.Context, row sql.LazyRow) (sql.RowIter, error) {
 	ts, ok := ctx.Session.(sql.TransactionSession)
 	if !ok {
 		return sql.RowsToRowIter(), nil

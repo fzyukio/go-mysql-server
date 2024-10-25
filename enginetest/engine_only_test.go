@@ -137,7 +137,7 @@ func TestLocks(t *testing.T) {
 	_, iter, _, err := engine.Query(ctx, "LOCK TABLES t1 READ, t2 WRITE, t3 READ")
 	require.NoError(err)
 
-	_, err = sql.RowIterToRows(ctx, iter)
+	_, err = sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 
 	ctx = enginetest.NewContext(harness)
@@ -145,7 +145,7 @@ func TestLocks(t *testing.T) {
 	_, iter, _, err = engine.Query(ctx, "UNLOCK TABLES")
 	require.NoError(err)
 
-	_, err = sql.RowIterToRows(ctx, iter)
+	_, err = sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 
 	require.Equal(1, t1.readLocks)
@@ -188,7 +188,7 @@ func TestRootSpanFinish(t *testing.T) {
 	_, iter, _, err := e.Query(sqlCtx, "SELECT 1")
 	require.NoError(t, err)
 
-	_, err = sql.RowIterToRows(sqlCtx, iter)
+	_, err = sql.RowIterToRows(sqlCtx, iter, 0)
 	require.NoError(t, err)
 
 	require.True(t, fakeSpan.finished)
@@ -275,7 +275,7 @@ func TestShowProcessList(t *testing.T) {
 
 	iter, err := rowexec.DefaultBuilder.Build(ctx, n, nil)
 	require.NoError(err)
-	rows, err := sql.RowIterToRows(ctx, iter)
+	rows, err := sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 
 	expected := []sql.Row{
@@ -352,7 +352,7 @@ func TestTrackProcess(t *testing.T) {
 
 	iter, err := rowexec.DefaultBuilder.Build(ctx, proc, nil)
 	require.NoError(err)
-	_, err = sql.RowIterToRows(ctx, iter)
+	_, err = sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 
 	procs := ctx.ProcessList.Processes()
@@ -761,14 +761,14 @@ func TestCollationCoercion(t *testing.T) {
 				_, iter, _, err := engine.Query(ctx, query)
 				if test.Error {
 					if err == nil {
-						_, err := sql.RowIterToRows(ctx, iter)
+						_, err := sql.RowIterToRows(ctx, iter, 0)
 						require.Error(t, err)
 					} else {
 						require.Error(t, err)
 					}
 				} else {
 					require.NoError(t, err)
-					rows, err := sql.RowIterToRows(ctx, iter)
+					rows, err := sql.RowIterToRows(ctx, iter, 0)
 					require.NoError(t, err)
 					require.Equal(t, 1, len(rows))
 					require.Equal(t, 1, len(rows[0]))
@@ -806,7 +806,7 @@ func TestRegex(t *testing.T) {
 				newCtx := ctx.WithQuery(tt.Query)
 				_, iter, _, err := engine.Query(newCtx, tt.Query)
 				if err == nil {
-					_, err = sql.RowIterToRows(newCtx, iter)
+					_, err = sql.RowIterToRows(newCtx, iter, 0)
 					require.Error(t, err)
 				}
 			}
@@ -896,7 +896,7 @@ func (s SimpleTableFunction) NewInstance(_ *sql.Context, _ sql.Database, _ []sql
 	return SimpleTableFunction{}, nil
 }
 
-func (s SimpleTableFunction) RowIter(ctx *sql.Context, r sql.Row) (sql.RowIter, error) {
+func (s SimpleTableFunction) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	if s.returnedResults == true {
 		return nil, io.EOF
 	}
@@ -978,13 +978,13 @@ type SimpleTableFunctionRowIter struct {
 	returnedResults bool
 }
 
-func (itr *SimpleTableFunctionRowIter) Next(_ *sql.Context) (sql.Row, error) {
+func (itr *SimpleTableFunctionRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if itr.returnedResults {
-		return nil, io.EOF
+		return io.EOF
 	}
 
 	itr.returnedResults = true
-	return sql.Row{"foo", 123}, nil
+	return nil
 }
 
 func (itr *SimpleTableFunctionRowIter) Close(_ *sql.Context) error {
@@ -1083,7 +1083,7 @@ func TestAlterTableWithBadSchema(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				_, err = sql.RowIterToRows(ctx, iter)
+				_, err = sql.RowIterToRows(ctx, iter, 0)
 				require.NoError(t, err)
 			}
 		})

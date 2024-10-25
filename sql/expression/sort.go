@@ -23,7 +23,7 @@ import (
 // Sorter is a sorter implementation for Row slices using SortFields for the comparison
 type Sorter struct {
 	SortFields []sql.SortField
-	Rows       []sql.Row
+	Rows       []sql.LazyRow
 	LastError  error
 	Ctx        *sql.Context
 }
@@ -167,7 +167,7 @@ func (h *TopRowsHeap) Less(i, j int) bool {
 }
 
 func (h *TopRowsHeap) Push(x interface{}) {
-	h.Sorter.Rows = append(h.Sorter.Rows, x.(sql.Row))
+	h.Sorter.Rows = append(h.Sorter.Rows, x.(sql.LazyRow))
 }
 
 func (h *TopRowsHeap) Pop() interface{} {
@@ -178,11 +178,11 @@ func (h *TopRowsHeap) Pop() interface{} {
 	return res
 }
 
-func (h *TopRowsHeap) Rows() ([]sql.Row, error) {
+func (h *TopRowsHeap) Rows() ([]sql.LazyRow, error) {
 	l := h.Len()
-	res := make([]sql.Row, l)
+	res := make([]sql.LazyRow, l)
 	for i := l - 1; i >= 0; i-- {
-		res[i] = heap.Pop(h).(sql.Row)
+		res[i] = heap.Pop(h).(sql.LazyRow)
 	}
 	return res, h.LastError
 }

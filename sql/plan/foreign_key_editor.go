@@ -79,12 +79,12 @@ func (fkEditor *ForeignKeyEditor) IsInitialized(editors map[*ForeignKeyEditor]st
 }
 
 // Update handles both the standard UPDATE statement and propagated referential actions from a parent table's ON UPDATE.
-func (fkEditor *ForeignKeyEditor) Update(ctx *sql.Context, old sql.Row, new sql.Row, depth int) error {
+func (fkEditor *ForeignKeyEditor) Update(ctx *sql.Context, old, new sql.LazyRow, depth int) error {
 	for _, reference := range fkEditor.References {
 		// Only check the reference for the columns that are updated
 		hasChange := false
 		for _, idx := range reference.RowMapper.IndexPositions {
-			cmp, err := fkEditor.Schema[idx].Type.Compare(old[idx], new[idx])
+			cmp, err := fkEditor.Schema[idx].Type.Compare(old.SqlValue(idx), new.SqlValue(idx))
 			if err != nil {
 				return err
 			}
@@ -129,7 +129,7 @@ func (fkEditor *ForeignKeyEditor) Update(ctx *sql.Context, old sql.Row, new sql.
 }
 
 // OnUpdateRestrict handles the ON UPDATE RESTRICT referential action.
-func (fkEditor *ForeignKeyEditor) OnUpdateRestrict(ctx *sql.Context, refActionData ForeignKeyRefActionData, old sql.Row, new sql.Row) error {
+func (fkEditor *ForeignKeyEditor) OnUpdateRestrict(ctx *sql.Context, refActionData ForeignKeyRefActionData, old, new sql.LazyRow) error {
 	if ok, err := fkEditor.ColumnsUpdated(refActionData, old, new); err != nil {
 		return err
 	} else if !ok {
@@ -141,7 +141,7 @@ func (fkEditor *ForeignKeyEditor) OnUpdateRestrict(ctx *sql.Context, refActionDa
 		return err
 	}
 	defer rowIter.Close(ctx)
-	if _, err = rowIter.Next(ctx); err == nil {
+	if err = rowIter.Next(ctx, nil); err == nil {
 		return sql.ErrForeignKeyParentViolation.New(refActionData.ForeignKey.Name,
 			refActionData.ForeignKey.Table, refActionData.ForeignKey.ParentTable, refActionData.RowMapper.GetKeyString(old))
 	}
@@ -152,7 +152,7 @@ func (fkEditor *ForeignKeyEditor) OnUpdateRestrict(ctx *sql.Context, refActionDa
 }
 
 // OnUpdateCascade handles the ON UPDATE CASCADE referential action.
-func (fkEditor *ForeignKeyEditor) OnUpdateCascade(ctx *sql.Context, refActionData ForeignKeyRefActionData, old sql.Row, new sql.Row, depth int) error {
+func (fkEditor *ForeignKeyEditor) OnUpdateCascade(ctx *sql.Context, refActionData ForeignKeyRefActionData, old, new sql.LazyRow, depth int) error {
 	if ok, err := fkEditor.ColumnsUpdated(refActionData, old, new); err != nil {
 		return err
 	} else if !ok {
@@ -164,18 +164,22 @@ func (fkEditor *ForeignKeyEditor) OnUpdateCascade(ctx *sql.Context, refActionDat
 		return err
 	}
 	defer rowIter.Close(ctx)
-	var rowToUpdate sql.Row
-	for rowToUpdate, err = rowIter.Next(ctx); err == nil; rowToUpdate, err = rowIter.Next(ctx) {
+	for {
+		rowToUpdate := sql.NewSqlRow(0)
+		err = rowIter.Next(ctx, rowToUpdate)
+		if err != nil {
+			break
+		}
 		if depth > 15 {
 			return sql.ErrForeignKeyDepthLimit.New()
 		}
-		updatedRow := make(sql.Row, len(rowToUpdate))
-		for i := range rowToUpdate {
+		updatedRow := sql.NewSqlRow(rowToUpdate.Count())
+		for i := range rowToUpdate.SqlValues() {
 			mappedVal := refActionData.ChildParentMapping[i]
 			if mappedVal == -1 {
-				updatedRow[i] = rowToUpdate[i]
+				updatedRow.SetSqlValue(i, rowToUpdate.SqlValue(i))
 			} else {
-				updatedRow[i] = new[mappedVal]
+				updatedRow.SetSqlValue(i, new.SqlValue(mappedVal))
 			}
 		}
 		err = refActionData.Editor.Update(ctx, rowToUpdate, updatedRow, depth)
@@ -190,7 +194,7 @@ func (fkEditor *ForeignKeyEditor) OnUpdateCascade(ctx *sql.Context, refActionDat
 }
 
 // OnUpdateSetNull handles the ON UPDATE SET NULL referential action.
-func (fkEditor *ForeignKeyEditor) OnUpdateSetNull(ctx *sql.Context, refActionData ForeignKeyRefActionData, old sql.Row, new sql.Row, depth int) error {
+func (fkEditor *ForeignKeyEditor) OnUpdateSetNull(ctx *sql.Context, refActionData ForeignKeyRefActionData, old, new sql.LazyRow, depth int) error {
 	if ok, err := fkEditor.ColumnsUpdated(refActionData, old, new); err != nil {
 		return err
 	} else if !ok {
@@ -202,16 +206,17 @@ func (fkEditor *ForeignKeyEditor) OnUpdateSetNull(ctx *sql.Context, refActionDat
 		return err
 	}
 	defer rowIter.Close(ctx)
-	var rowToUpdate sql.Row
-	for rowToUpdate, err = rowIter.Next(ctx); err == nil; rowToUpdate, err = rowIter.Next(ctx) {
+	for {
+		rowToUpdate := sql.NewSqlRow(0)
+		err = rowIter.Next(ctx, rowToUpdate)
 		if depth > 15 {
 			return sql.ErrForeignKeyDepthLimit.New()
 		}
-		updatedRow := make(sql.Row, len(rowToUpdate))
-		for i := range rowToUpdate {
+		updatedRow := sql.NewSqlRow(rowToUpdate.Count())
+		for i := range rowToUpdate.SqlValues() {
 			// Row contents are nil by default, so we only need to assign the non-affected values
 			if refActionData.ChildParentMapping[i] == -1 {
-				updatedRow[i] = rowToUpdate[i]
+				updatedRow.SetSqlValue(i, rowToUpdate.SqlValue(i))
 			}
 		}
 		err = refActionData.Editor.Update(ctx, rowToUpdate, updatedRow, depth)
@@ -226,7 +231,7 @@ func (fkEditor *ForeignKeyEditor) OnUpdateSetNull(ctx *sql.Context, refActionDat
 }
 
 // Delete handles both the standard DELETE statement and propagated referential actions from a parent table's ON DELETE.
-func (fkEditor *ForeignKeyEditor) Delete(ctx *sql.Context, row sql.Row, depth int) error {
+func (fkEditor *ForeignKeyEditor) Delete(ctx *sql.Context, row sql.LazyRow, depth int) error {
 	//TODO: may need to process some cascades after the update to avoid recursive violations, write some tests on this
 	for _, refActionData := range fkEditor.RefActions {
 		switch refActionData.ForeignKey.OnDelete {
@@ -257,13 +262,13 @@ func (fkEditor *ForeignKeyEditor) Delete(ctx *sql.Context, row sql.Row, depth in
 }
 
 // OnDeleteRestrict handles the ON DELETE RESTRICT referential action.
-func (fkEditor *ForeignKeyEditor) OnDeleteRestrict(ctx *sql.Context, refActionData ForeignKeyRefActionData, row sql.Row) error {
+func (fkEditor *ForeignKeyEditor) OnDeleteRestrict(ctx *sql.Context, refActionData ForeignKeyRefActionData, row sql.LazyRow) error {
 	rowIter, err := refActionData.RowMapper.GetIter(ctx, row, false)
 	if err != nil {
 		return err
 	}
 	defer rowIter.Close(ctx)
-	if _, err = rowIter.Next(ctx); err == nil {
+	if err = rowIter.Next(ctx, nil); err == nil {
 		return sql.ErrForeignKeyParentViolation.New(refActionData.ForeignKey.Name,
 			refActionData.ForeignKey.Table, refActionData.ForeignKey.ParentTable, refActionData.RowMapper.GetKeyString(row))
 	}
@@ -274,14 +279,15 @@ func (fkEditor *ForeignKeyEditor) OnDeleteRestrict(ctx *sql.Context, refActionDa
 }
 
 // OnDeleteCascade handles the ON DELETE CASCADE referential action.
-func (fkEditor *ForeignKeyEditor) OnDeleteCascade(ctx *sql.Context, refActionData ForeignKeyRefActionData, row sql.Row, depth int) error {
+func (fkEditor *ForeignKeyEditor) OnDeleteCascade(ctx *sql.Context, refActionData ForeignKeyRefActionData, row sql.LazyRow, depth int) error {
 	rowIter, err := refActionData.RowMapper.GetIter(ctx, row, false)
 	if err != nil {
 		return err
 	}
 	defer rowIter.Close(ctx)
-	var rowToDelete sql.Row
-	for rowToDelete, err = rowIter.Next(ctx); err == nil; rowToDelete, err = rowIter.Next(ctx) {
+	for {
+		rowToDelete := sql.NewSqlRow(0)
+		err = rowIter.Next(ctx, rowToDelete)
 		// MySQL seems to have a bug where cyclical foreign keys return an error at a depth of 15 instead of 16.
 		// This replicates the observed behavior, regardless of whether we're replicating a bug or intentional behavior.
 		if depth >= 15 {
@@ -303,14 +309,15 @@ func (fkEditor *ForeignKeyEditor) OnDeleteCascade(ctx *sql.Context, refActionDat
 }
 
 // OnDeleteSetNull handles the ON DELETE SET NULL referential action.
-func (fkEditor *ForeignKeyEditor) OnDeleteSetNull(ctx *sql.Context, refActionData ForeignKeyRefActionData, row sql.Row, depth int) error {
+func (fkEditor *ForeignKeyEditor) OnDeleteSetNull(ctx *sql.Context, refActionData ForeignKeyRefActionData, row sql.LazyRow, depth int) error {
 	rowIter, err := refActionData.RowMapper.GetIter(ctx, row, false)
 	if err != nil {
 		return err
 	}
 	defer rowIter.Close(ctx)
-	var rowToNull sql.Row
-	for rowToNull, err = rowIter.Next(ctx); err == nil; rowToNull, err = rowIter.Next(ctx) {
+	for {
+		rowToNull := sql.NewSqlRow(0)
+		err = rowIter.Next(ctx, nil)
 		// MySQL seems to have a bug where cyclical foreign keys return an error at a depth of 15 instead of 16.
 		// This replicates the observed behavior, regardless of whether we're replicating a bug or intentional behavior.
 		if depth >= 15 {
@@ -320,11 +327,11 @@ func (fkEditor *ForeignKeyEditor) OnDeleteSetNull(ctx *sql.Context, refActionDat
 				return sql.ErrForeignKeyDepthLimit.New()
 			}
 		}
-		nulledRow := make(sql.Row, len(rowToNull))
-		for i := range rowToNull {
+		nulledRow := sql.NewSqlRow(rowToNull.Count())
+		for i := range rowToNull.SqlValues() {
 			// Row contents are nil by default, so we only need to assign the non-affected values
 			if refActionData.ChildParentMapping[i] == -1 {
-				nulledRow[i] = rowToNull[i]
+				nulledRow.SetSqlValue(i, rowToNull.SqlValue(i))
 			}
 		}
 		err = refActionData.Editor.Update(ctx, rowToNull, nulledRow, depth)
@@ -341,13 +348,13 @@ func (fkEditor *ForeignKeyEditor) OnDeleteSetNull(ctx *sql.Context, refActionDat
 // ColumnsUpdated returns whether the columns involved in the foreign key were updated. Some updates may only update
 // columns that are not involved in a foreign key, and therefore we should ignore a CASCADE or SET NULL referential
 // action in such cases.
-func (fkEditor *ForeignKeyEditor) ColumnsUpdated(refActionData ForeignKeyRefActionData, old sql.Row, new sql.Row) (bool, error) {
+func (fkEditor *ForeignKeyEditor) ColumnsUpdated(refActionData ForeignKeyRefActionData, old, new sql.LazyRow) (bool, error) {
 	for _, mappedVal := range refActionData.ChildParentMapping {
 		if mappedVal == -1 {
 			continue
 		}
-		oldVal := old[mappedVal]
-		newVal := new[mappedVal]
+		oldVal := old.SqlValue(mappedVal)
+		newVal := new.SqlValue(mappedVal)
 		cmp, err := fkEditor.Schema[mappedVal].Type.Compare(oldVal, newVal)
 		if err != nil {
 			return false, err
@@ -384,10 +391,10 @@ func (reference *ForeignKeyReferenceHandler) IsInitialized() bool {
 }
 
 // CheckReference checks that the given row has an index entry in the referenced table.
-func (reference *ForeignKeyReferenceHandler) CheckReference(ctx *sql.Context, row sql.Row) error {
+func (reference *ForeignKeyReferenceHandler) CheckReference(ctx *sql.Context, row sql.LazyRow) error {
 	// If even one of the values are NULL then we don't check the parent
 	for _, pos := range reference.RowMapper.IndexPositions {
-		if row[pos] == nil {
+		if row.SqlValue(pos) == nil {
 			return nil
 		}
 	}
@@ -398,7 +405,7 @@ func (reference *ForeignKeyReferenceHandler) CheckReference(ctx *sql.Context, ro
 	}
 	defer rowIter.Close(ctx)
 
-	_, err = rowIter.Next(ctx)
+	err = rowIter.Next(ctx, nil)
 	if err != nil && err != io.EOF {
 		return err
 	}
@@ -412,7 +419,7 @@ func (reference *ForeignKeyReferenceHandler) CheckReference(ctx *sql.Context, ro
 		for i := range reference.ForeignKey.Columns {
 			colPos := reference.SelfCols[strings.ToLower(reference.ForeignKey.Columns[i])]
 			refPos := reference.SelfCols[strings.ToLower(reference.ForeignKey.ParentColumns[i])]
-			cmp, err := reference.RowMapper.SourceSch[colPos].Type.Compare(row[colPos], row[refPos])
+			cmp, err := reference.RowMapper.SourceSch[colPos].Type.Compare(row.SqlValue(colPos), row.SqlValue(refPos))
 			if err != nil {
 				return err
 			}
@@ -437,7 +444,9 @@ func (reference *ForeignKeyReferenceHandler) CheckTable(ctx *sql.Context, tbl sq
 	}
 	rowIter := sql.NewTableRowIter(ctx, tbl, partIter)
 	defer rowIter.Close(ctx)
-	for row, err := rowIter.Next(ctx); err == nil; row, err = rowIter.Next(ctx) {
+	for {
+		row := sql.NewSqlRow(0)
+		err := rowIter.Next(ctx, row)
 		err = reference.CheckReference(ctx, row)
 		if err != nil {
 			return err
@@ -473,10 +482,10 @@ func (mapper *ForeignKeyRowMapper) IsInitialized() bool {
 }
 
 // GetIter returns a row iterator for all rows that match the given source row.
-func (mapper *ForeignKeyRowMapper) GetIter(ctx *sql.Context, row sql.Row, refCheck bool) (sql.RowIter, error) {
+func (mapper *ForeignKeyRowMapper) GetIter(ctx *sql.Context, row sql.LazyRow, refCheck bool) (sql.RowIter, error) {
 	rang := make(sql.MySQLRange, len(mapper.IndexPositions)+len(mapper.AppendTypes))
 	for rangPosition, rowPos := range mapper.IndexPositions {
-		rowVal := row[rowPos]
+		rowVal := row.SqlValue(rowPos)
 		// If any value is NULL then it is ignored by foreign keys
 		if rowVal == nil {
 			return sql.RowsToRowIter(), nil
@@ -510,10 +519,10 @@ func (mapper *ForeignKeyRowMapper) GetIter(ctx *sql.Context, row sql.Row, refChe
 }
 
 // GetKeyString returns a string representing the key used to access the index.
-func (mapper *ForeignKeyRowMapper) GetKeyString(row sql.Row) string {
+func (mapper *ForeignKeyRowMapper) GetKeyString(row sql.LazyRow) string {
 	keyStrParts := make([]string, len(mapper.IndexPositions))
 	for i, rowPos := range mapper.IndexPositions {
-		keyStrParts[i] = fmt.Sprint(row[rowPos])
+		keyStrParts[i] = fmt.Sprint(row.SqlValue(rowPos))
 	}
 	return fmt.Sprintf("[%s]", strings.Join(keyStrParts, ","))
 }

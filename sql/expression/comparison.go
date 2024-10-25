@@ -28,7 +28,7 @@ var ErrInvalidRegexp = errors.NewKind("Invalid regular expression: %s")
 // Comparer implements a comparison expression.
 type Comparer interface {
 	sql.Expression
-	Compare(ctx *sql.Context, row sql.Row) (int, error)
+	Compare(ctx *sql.Context, row sql.LazyRow) (int, error)
 	Left() sql.Expression
 	Right() sql.Expression
 }
@@ -117,7 +117,7 @@ func (c *comparison) CollationCoercibility(ctx *sql.Context) (collation sql.Coll
 // Compare the two given values using the types of the expressions in the comparison.
 // Since both types should be equal, it does not matter which type is used, but for
 // reference, the left type is always used.
-func (c *comparison) Compare(ctx *sql.Context, row sql.Row) (int, error) {
+func (c *comparison) Compare(ctx *sql.Context, row sql.LazyRow) (int, error) {
 	left, right, err := c.evalLeftAndRight(ctx, row)
 	if err != nil {
 		return 0, err
@@ -180,7 +180,7 @@ func (c *comparison) Compare(ctx *sql.Context, row sql.Row) (int, error) {
 	return compareType.Compare(left, right)
 }
 
-func (c *comparison) evalLeftAndRight(ctx *sql.Context, row sql.Row) (interface{}, interface{}, error) {
+func (c *comparison) evalLeftAndRight(ctx *sql.Context, row sql.LazyRow) (interface{}, interface{}, error) {
 	left, err := c.Left().Eval(ctx, row)
 	if err != nil {
 		return nil, nil, err
@@ -334,7 +334,7 @@ func (e *Equals) CollationCoercibility(ctx *sql.Context) (collation sql.Collatio
 }
 
 // Eval implements the Expression interface.
-func (e *Equals) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (e *Equals) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	result, err := e.Compare(ctx, row)
 	if err != nil {
 		if ErrNilOperand.Is(err) {
@@ -413,7 +413,7 @@ func (e *NullSafeEquals) CollationCoercibility(ctx *sql.Context) (collation sql.
 	return sql.Collation_binary, 5
 }
 
-func (e *NullSafeEquals) Compare(ctx *sql.Context, row sql.Row) (int, error) {
+func (e *NullSafeEquals) Compare(ctx *sql.Context, row sql.LazyRow) (int, error) {
 	left, right, err := e.evalLeftAndRight(ctx, row)
 	if err != nil {
 		return 0, err
@@ -441,7 +441,7 @@ func (e *NullSafeEquals) Compare(ctx *sql.Context, row sql.Row) (int, error) {
 }
 
 // Eval implements the Expression interface.
-func (e *NullSafeEquals) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (e *NullSafeEquals) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	result, err := e.Compare(ctx, row)
 	if err != nil {
 		return nil, err
@@ -485,7 +485,7 @@ func (gt *GreaterThan) CollationCoercibility(ctx *sql.Context) (collation sql.Co
 }
 
 // Eval implements the Expression interface.
-func (gt *GreaterThan) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (gt *GreaterThan) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	result, err := gt.Compare(ctx, row)
 	if err != nil {
 		if ErrNilOperand.Is(err) {
@@ -537,7 +537,7 @@ func (lt *LessThan) CollationCoercibility(ctx *sql.Context) (collation sql.Colla
 }
 
 // Eval implements the expression interface.
-func (lt *LessThan) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (lt *LessThan) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	result, err := lt.Compare(ctx, row)
 	if err != nil {
 		if ErrNilOperand.Is(err) {
@@ -590,7 +590,7 @@ func (gte *GreaterThanOrEqual) CollationCoercibility(ctx *sql.Context) (collatio
 }
 
 // Eval implements the Expression interface.
-func (gte *GreaterThanOrEqual) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (gte *GreaterThanOrEqual) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	result, err := gte.Compare(ctx, row)
 	if err != nil {
 		if ErrNilOperand.Is(err) {
@@ -643,7 +643,7 @@ func (lte *LessThanOrEqual) CollationCoercibility(ctx *sql.Context) (collation s
 }
 
 // Eval implements the Expression interface.
-func (lte *LessThanOrEqual) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (lte *LessThanOrEqual) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	result, err := lte.Compare(ctx, row)
 	if err != nil {
 		if ErrNilOperand.Is(err) {

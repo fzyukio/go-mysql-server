@@ -118,7 +118,7 @@ func (b *BitOp) WithChildren(children ...sql.Expression) (sql.Expression, error)
 }
 
 // Eval implements the Expression interface.
-func (b *BitOp) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (b *BitOp) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	lval, rval, err := b.evalLeftRight(ctx, row)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func (b *BitOp) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	return nil, errUnableToEval.New(lval, b.Op, rval)
 }
 
-func (b *BitOp) evalLeftRight(ctx *sql.Context, row sql.Row) (interface{}, interface{}, error) {
+func (b *BitOp) evalLeftRight(ctx *sql.Context, row sql.LazyRow) (interface{}, interface{}, error) {
 	var lval, rval interface{}
 	var err error
 

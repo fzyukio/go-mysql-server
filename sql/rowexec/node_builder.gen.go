@@ -23,7 +23,7 @@ import (
 	"github.com/dolthub/go-mysql-server/sql/plan"
 )
 
-func (b *BaseBuilder) buildNodeExec(ctx *sql.Context, n sql.Node, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildNodeExec(ctx *sql.Context, n sql.Node, row sql.LazyRow) (sql.RowIter, error) {
 	var iter sql.RowIter
 	var err error
 	if b.override != nil {
@@ -44,7 +44,7 @@ func (b *BaseBuilder) buildNodeExec(ctx *sql.Context, n sql.Node, row sql.Row) (
 	return iter, nil
 }
 
-func (b *BaseBuilder) buildNodeExecNoAnalyze(ctx *sql.Context, n sql.Node, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildNodeExecNoAnalyze(ctx *sql.Context, n sql.Node, row sql.LazyRow) (sql.RowIter, error) {
 	switch n := n.(type) {
 	case *plan.CreateForeignKey:
 		return b.buildCreateForeignKey(ctx, n, row)

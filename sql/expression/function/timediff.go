@@ -88,7 +88,7 @@ func convToDateOrTime(val interface{}) (interface{}, error) {
 }
 
 // Eval implements the Expression interface.
-func (td *TimeDiff) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (td *TimeDiff) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	if td.LeftChild == nil || td.RightChild == nil {
 		return nil, nil
 	}
@@ -192,7 +192,7 @@ func (d *DateDiff) WithChildren(children ...sql.Expression) (sql.Expression, err
 }
 
 // Eval implements the sql.Expression interface.
-func (d *DateDiff) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *DateDiff) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	if d.LeftChild == nil || d.RightChild == nil {
 		return nil, nil
 	}
@@ -298,7 +298,7 @@ func (t *TimestampDiff) WithChildren(children ...sql.Expression) (sql.Expression
 }
 
 // Eval implements the sql.Expression interface.
-func (t *TimestampDiff) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (t *TimestampDiff) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	if t.unit == nil {
 		return nil, errors.NewKind("unit cannot be null").New(t.unit)
 	}

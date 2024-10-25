@@ -59,9 +59,9 @@ type RowsCache interface {
 	// Add a new row to the cache. If there is no memory available, it will try to
 	// free some memory. If after that there is still no memory available, it
 	// will return an error and erase all the content of the cache.
-	Add(Row) error
+	Add(row LazyRow) error
 	// Get returns all rows.
-	Get() []Row
+	Get() []LazyRow
 }
 
 // Rows2Cache is a cache of Row2s.

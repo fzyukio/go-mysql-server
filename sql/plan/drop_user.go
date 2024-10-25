@@ -108,7 +108,7 @@ func (*DropUser) CollationCoercibility(ctx *sql.Context) (collation sql.Collatio
 }
 
 // RowIter implements the interface sql.Node.
-func (n *DropUser) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (n *DropUser) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	mysqlDb, ok := n.MySQLDb.(*mysql_db.MySQLDb)
 	if !ok {
 		return nil, sql.ErrDatabaseNotFound.New("mysql")

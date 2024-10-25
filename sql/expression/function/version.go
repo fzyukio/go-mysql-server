@@ -85,7 +85,7 @@ func (f Version) Resolved() bool {
 func (f Version) Children() []sql.Expression { return nil }
 
 // Eval implements the Expression interface.
-func (f Version) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f Version) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	if f == "" {
 		return mysqlVersion, nil
 	}

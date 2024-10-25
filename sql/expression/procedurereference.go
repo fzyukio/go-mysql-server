@@ -202,23 +202,23 @@ func (ppr *ProcedureReference) CloseCursor(ctx *sql.Context, name string) error 
 }
 
 // FetchCursor returns the next row from the designated cursor.
-func (ppr *ProcedureReference) FetchCursor(ctx *sql.Context, name string) (sql.Row, sql.Schema, error) {
+func (ppr *ProcedureReference) FetchCursor(ctx *sql.Context, name string, row sql.LazyRow) (sql.Schema, error) {
 	if ppr == nil || ppr.InnermostScope == nil {
-		return nil, nil, fmt.Errorf("cannot find cursor `%s`", name)
+		return nil, fmt.Errorf("cannot find cursor `%s`", name)
 	}
 	lowerName := strings.ToLower(name)
 	scope := ppr.InnermostScope
 	for scope != nil {
 		if cursorRefVal, ok := scope.Cursors[lowerName]; ok {
 			if cursorRefVal.RowIter == nil {
-				return nil, nil, sql.ErrCursorNotOpen.New(name)
+				return nil, sql.ErrCursorNotOpen.New(name)
 			}
-			row, err := cursorRefVal.RowIter.Next(ctx)
-			return row, cursorRefVal.SelectStmt.Schema(), err
+			err := cursorRefVal.RowIter.Next(ctx, row)
+			return cursorRefVal.SelectStmt.Schema(), err
 		}
 		scope = scope.Parent
 	}
-	return nil, nil, fmt.Errorf("cannot find cursor `%s`", name)
+	return nil, fmt.Errorf("cannot find cursor `%s`", name)
 }
 
 // PushScope creates a new scope inside the current one.
@@ -353,7 +353,7 @@ func (pp *ProcedureParam) String() string {
 }
 
 // Eval implements the sql.Expression interface.
-func (pp *ProcedureParam) Eval(ctx *sql.Context, r sql.Row) (interface{}, error) {
+func (pp *ProcedureParam) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return pp.pRef.GetVariableValue(pp.name)
 }
 
@@ -426,7 +426,7 @@ func (upp *UnresolvedProcedureParam) String() string {
 }
 
 // Eval implements the sql.Expression interface.
-func (upp *UnresolvedProcedureParam) Eval(ctx *sql.Context, r sql.Row) (interface{}, error) {
+func (upp *UnresolvedProcedureParam) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return nil, fmt.Errorf("attempted to use unresolved procedure param '%s'", upp.name)
 }
 

@@ -75,7 +75,7 @@ func (c *Ceil) WithChildren(children ...sql.Expression) (sql.Expression, error) 
 }
 
 // Eval implements the Expression interface.
-func (c *Ceil) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (c *Ceil) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	child, err := c.Child.Eval(ctx, row)
 
 	if err != nil {
@@ -159,7 +159,7 @@ func (f *Floor) WithChildren(children ...sql.Expression) (sql.Expression, error)
 }
 
 // Eval implements the Expression interface.
-func (f *Floor) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *Floor) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	child, err := f.Child.Eval(ctx, row)
 
 	if err != nil {
@@ -239,7 +239,7 @@ func (r *Round) Children() []sql.Expression {
 }
 
 // Eval implements the Expression interface.
-func (r *Round) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (r *Round) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := r.LeftChild.Eval(ctx, row)
 	if err != nil {
 		return nil, err

@@ -84,7 +84,7 @@ func (f *Format) String() string {
 }
 
 // Eval implements the Expression interface.
-func (f *Format) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *Format) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	numVal, err := f.NumValue.Eval(ctx, row)
 	if err != nil {
 		return nil, err

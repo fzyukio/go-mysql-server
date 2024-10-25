@@ -66,7 +66,7 @@ func newMySQLIter(rows *dsql.Rows) mysqlIter {
 }
 
 // Next implements the interface sql.RowIter.
-func (m mysqlIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (m mysqlIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if m.rows.Next() {
 		output := make(sql.Row, len(m.types))
 		for i, typ := range m.types {
@@ -74,7 +74,7 @@ func (m mysqlIter) Next(ctx *sql.Context) (sql.Row, error) {
 		}
 		err := m.rows.Scan(output...)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		for i, val := range output {
 			reflectVal := reflect.ValueOf(val)
@@ -87,9 +87,9 @@ func (m mysqlIter) Next(ctx *sql.Context) (sql.Row, error) {
 				}
 			}
 		}
-		return output, nil
+		return nil
 	}
-	return nil, io.EOF
+	return io.EOF
 }
 
 // Close implements the interface sql.RowIter.

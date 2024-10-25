@@ -46,23 +46,23 @@ func NewTableEditorIter(wrappedIter sql.RowIter, openerClosers ...sql.EditOpener
 }
 
 // Next implements the interface sql.RowIter.
-func (s *TableEditorIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (s *TableEditorIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	s.once.Do(func() {
 		for _, openerCloser := range s.openerClosers {
 			openerCloser.StatementBegin(ctx)
 		}
 	})
-	row, err := s.inner.Next(ctx)
+	err := s.inner.Next(ctx, nil)
 	if err != nil && err != io.EOF {
 		s.errorEncountered = err
-		return row, err
+		return err
 	}
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return ctx.Err()
 	default:
 	}
-	return row, err
+	return err
 }
 
 // Close implements the interface sql.RowIter.
@@ -116,19 +116,19 @@ func NewCheckpointingTableEditorIter(wrappedIter sql.RowIter, table sql.EditOpen
 	}
 }
 
-func (c CheckpointingTableEditorIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (c CheckpointingTableEditorIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	c.editIter.StatementBegin(ctx)
-	row, err := c.inner.Next(ctx)
+	err := c.inner.Next(ctx, row)
 	if err != nil && err != io.EOF {
 		if dErr := c.editIter.DiscardChanges(ctx, err); dErr != nil {
-			return nil, dErr
+			return dErr
 		}
-		return row, err
+		return err
 	}
 	if sErr := c.editIter.StatementComplete(ctx); sErr != nil {
-		return row, sErr
+		return sErr
 	}
-	return row, err
+	return err
 }
 
 func (c CheckpointingTableEditorIter) InnerIter() sql.RowIter {

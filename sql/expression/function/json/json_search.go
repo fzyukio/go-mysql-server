@@ -200,7 +200,7 @@ func jsonSearch(json interface{}, matcher *expression.LikeMatcher, currPath stri
 }
 
 // Eval implements sql.Expression
-func (j *JSONSearch) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (j *JSONSearch) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	span, ctx := ctx.Span(fmt.Sprintf("function.%s", j.FunctionName()))
 	defer span.End()
 

@@ -22,7 +22,7 @@ func NewAnyValueBuffer(child sql.Expression) *anyValueBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (a *anyValueBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (a *anyValueBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	if a.res != nil {
 		return nil
 	}
@@ -61,7 +61,7 @@ func NewSumBuffer(child sql.Expression) *sumBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (m *sumBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (m *sumBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	v, err := m.expr.Eval(ctx, row)
 	if err != nil {
 		return err
@@ -142,7 +142,7 @@ func NewLastBuffer(child sql.Expression) *lastBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (l *lastBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (l *lastBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	v, err := l.expr.Eval(ctx, row)
 	if err != nil {
 		return err
@@ -182,7 +182,7 @@ func NewAvgBuffer(child sql.Expression) *avgBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (a *avgBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (a *avgBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	v, err := a.expr.Eval(ctx, row)
 	if err != nil {
 		return err
@@ -250,7 +250,7 @@ func NewBitAndBuffer(child sql.Expression) *bitAndBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (b *bitAndBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (b *bitAndBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	v, err := b.expr.Eval(ctx, row)
 	if err != nil {
 		return err
@@ -297,7 +297,7 @@ func NewBitOrBuffer(child sql.Expression) *bitOrBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (b *bitOrBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (b *bitOrBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	v, err := b.expr.Eval(ctx, row)
 	if err != nil {
 		return err
@@ -344,7 +344,7 @@ func NewBitXorBuffer(child sql.Expression) *bitXorBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (b *bitXorBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (b *bitXorBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	v, err := b.expr.Eval(ctx, row)
 	if err != nil {
 		return err
@@ -394,7 +394,7 @@ func NewCountDistinctBuffer(children []sql.Expression) *countDistinctBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (c *countDistinctBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (c *countDistinctBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	var value interface{}
 	if len(c.exprs) == 0 {
 		return fmt.Errorf("no expressions")
@@ -466,7 +466,7 @@ func NewCountBuffer(child sql.Expression) *countBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (c *countBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (c *countBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	var inc bool
 	if _, ok := c.expr.(*expression.Star); ok {
 		inc = true
@@ -508,7 +508,7 @@ func NewFirstBuffer(child sql.Expression) *firstBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (f *firstBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (f *firstBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	if f.val != nil {
 		return nil
 	}
@@ -547,7 +547,7 @@ func NewMaxBuffer(child sql.Expression) *maxBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (m *maxBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (m *maxBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	v, err := m.expr.Eval(ctx, row)
 	if err != nil {
 		return err
@@ -593,7 +593,7 @@ func NewMinBuffer(child sql.Expression) *minBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (m *minBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (m *minBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	v, err := m.expr.Eval(ctx, row)
 	if err != nil {
 		return err
@@ -639,7 +639,7 @@ func NewJsonArrayBuffer(child sql.Expression) *jsonArrayBuffer {
 }
 
 // Update implements the AggregationBuffer interface.
-func (j *jsonArrayBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (j *jsonArrayBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	v, err := j.expr.Eval(ctx, row)
 	if err != nil {
 		return err

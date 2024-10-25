@@ -320,7 +320,7 @@ func testHistogram(ctx *sql.Context, table *plan.ResolvedTable, fields []int, bu
 	}
 
 	i, err := rowexec.DefaultBuilder.Build(ctx, table, nil)
-	rows, err := sql.RowIterToRows(ctx, i)
+	rows, err := sql.RowIterToRows(ctx, i, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -426,7 +426,7 @@ func expectedResultSize(ctx *sql.Context, t1, t2 *plan.ResolvedTable, filters []
 	}
 	cnt := 0
 	for {
-		_, err := i.Next(ctx)
+		err := i.Next(ctx, nil)
 		if err == io.EOF {
 			break
 		}
@@ -473,7 +473,7 @@ func expDistForTable(ctx *sql.Context, rt *plan.ResolvedTable, cnt int, lambda f
 	iter := stats.NewExpDistIter(2, cnt, lambda)
 	var i int
 	for {
-		val, err := iter.Next(ctx)
+		err := iter.Next(ctx, nil)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -495,7 +495,7 @@ func normalDistForTable(ctx *sql.Context, rt *plan.ResolvedTable, cnt int, mean,
 	iter := stats.NewNormDistIter(2, cnt, mean, std)
 	var i int
 	for {
-		val, err := iter.Next(ctx)
+		err := iter.Next(ctx, nil)
 		if errors.Is(err, io.EOF) {
 			break
 		}

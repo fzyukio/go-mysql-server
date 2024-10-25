@@ -69,25 +69,25 @@ func (i *WindowIter) Dispose() {
 }
 
 // Next implements sql.RowIter
-func (i *WindowIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *WindowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if !i.initialized {
 		err := i.initializeIters(ctx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	row := make(sql.Row, i.size())
 	for j, pIter := range i.partitionIters {
-		res, err := pIter.Next(ctx)
+		res := sql.NewSqlRow(0)
+		err := pIter.Next(ctx, nil)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		for k, idx := range i.outputOrdinals[j] {
-			row[idx] = res[k]
+			row.SetSqlValue(idx, res.SqlValue(k))
 		}
 	}
-	return row, nil
+	return nil
 }
 
 func (i *WindowIter) size() int {
@@ -107,11 +107,11 @@ func (i *WindowIter) size() int {
 // TODO: share the child buffer and sort/partition inbetween WindowPartitionIters
 func (i *WindowIter) initializeIters(ctx *sql.Context) error {
 	buf := make(sql.WindowBuffer, 0)
-	var row sql.Row
 	var err error
 	for {
 		// drain child iter into reusable buffer
-		row, err = i.iter.Next(ctx)
+		row := sql.NewSqlRow(0)
+		err = i.iter.Next(ctx, nil)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -135,13 +135,13 @@ type windowBufferIter struct {
 	pos int
 }
 
-func (i *windowBufferIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *windowBufferIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if i.pos >= len(i.buf) {
-		return nil, io.EOF
+		return io.EOF
 	}
-	row := i.buf[i.pos]
+	row = i.buf[i.pos]
 	i.pos++
-	return row, nil
+	return nil
 }
 
 func (i *windowBufferIter) Close(ctx *sql.Context) error {

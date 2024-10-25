@@ -88,7 +88,7 @@ func TestInsertIgnoreConversions(t *testing.T) {
 			ri, err := DefaultBuilder.Build(ctx, insertPlan, nil)
 			require.NoError(t, err)
 
-			row, err := ri.Next(ctx)
+			err := ri.Next(ctx, nil)
 			require.NoError(t, err)
 
 			require.Equal(t, sql.Row{tc.expected}, row)

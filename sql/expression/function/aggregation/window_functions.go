@@ -848,7 +848,7 @@ type GroupConcatAgg struct {
 	// TODO make this more efficient, ideally with sliding window and hashes
 	distinct map[string]struct{}
 	// original row order used for optional result sorting
-	rows []sql.Row
+	rows []sql.LazyRow
 }
 
 func NewGroupConcatAgg(gc *GroupConcat) *GroupConcatAgg {
@@ -915,12 +915,12 @@ func (a *GroupConcatAgg) Compute(ctx *sql.Context, interval sql.WindowInterval, 
 
 	sb := strings.Builder{}
 	for i, row := range rows {
-		lastIdx := len(row) - 1
+		lastIdx := row.Count() - 1
 		if i == 0 {
-			sb.WriteString(row[lastIdx].(string))
+			sb.WriteString(row.SqlValue(lastIdx).(string))
 		} else {
 			sb.WriteString(a.gc.separator)
-			sb.WriteString(row[lastIdx].(string))
+			sb.WriteString(row.SqlValue(lastIdx).(string))
 		}
 
 		// Don't allow the string to cross maxlen
@@ -940,8 +940,8 @@ func (a *GroupConcatAgg) Compute(ctx *sql.Context, interval sql.WindowInterval, 
 	return ret
 }
 
-func (a *GroupConcatAgg) filterToDistinct(ctx *sql.Context, buf sql.WindowBuffer) ([]sql.Row, map[string]struct{}, error) {
-	rows := make([]sql.Row, 0)
+func (a *GroupConcatAgg) filterToDistinct(ctx *sql.Context, buf sql.WindowBuffer) ([]sql.LazyRow, map[string]struct{}, error) {
+	rows := make([]sql.LazyRow, 0)
 	distinct := make(map[string]struct{}, 0)
 	for _, row := range buf {
 		evalRow, retType, err := evalExprs(ctx, a.gc.selectExprs, row)
@@ -986,7 +986,10 @@ func (a *GroupConcatAgg) filterToDistinct(ctx *sql.Context, buf sql.WindowBuffer
 
 		// Append the current value to the end of the row. We want to preserve the row's original structure for
 		// for sort ordering in the final step.
-		rows = append(rows, append(row, nil, vs))
+		// todo fix indexes
+		row.SetSqlValue(-1, nil)
+		row.SetSqlValue(-1, vs)
+		rows = append(rows, row)
 	}
 	return rows, distinct, nil
 }

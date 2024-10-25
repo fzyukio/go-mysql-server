@@ -131,7 +131,7 @@ func (j *JSONObjectAgg) NewWindowFunction() (sql.WindowFunction, error) {
 }
 
 // Eval implements the Expression interface.
-func (j *JSONObjectAgg) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (j *JSONObjectAgg) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return nil, ErrEvalUnsupportedOnAggregation.New("JSONObjectAgg")
 }
 
@@ -141,7 +141,7 @@ type jsonObjectBuffer struct {
 }
 
 // Update implements the AggregationBuffer interface.
-func (j *jsonObjectBuffer) Update(ctx *sql.Context, row sql.Row) error {
+func (j *jsonObjectBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
 	key, err := j.joa.key.Eval(ctx, row)
 	if err != nil {
 		return err

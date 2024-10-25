@@ -301,7 +301,7 @@ func (i *IndexedTableAccess) IsStrictLookup() bool {
 	return true
 }
 
-func (i *IndexedTableAccess) GetLookup(ctx *sql.Context, row sql.Row) (sql.IndexLookup, error) {
+func (i *IndexedTableAccess) GetLookup(ctx *sql.Context, row sql.LazyRow) (sql.IndexLookup, error) {
 	// if the lookup was provided at analysis time (static evaluation), use it.
 	if !i.lookup.IsEmpty() {
 		return i.lookup, nil
@@ -630,7 +630,7 @@ func (lb *LookupBuilder) GetLookup(key lookupBuilderKey) (sql.IndexLookup, error
 	}, nil
 }
 
-func (lb *LookupBuilder) GetKey(ctx *sql.Context, row sql.Row) (lookupBuilderKey, error) {
+func (lb *LookupBuilder) GetKey(ctx *sql.Context, row sql.LazyRow) (lookupBuilderKey, error) {
 	if lb.key == nil {
 		lb.key = make([]interface{}, len(lb.keyExprs))
 	}

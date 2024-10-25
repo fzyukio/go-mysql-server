@@ -37,7 +37,7 @@ var ErrTooHighPrecision = errors.NewKind("Too-big precision %d for '%s'. Maximum
 
 func getDate(ctx *sql.Context,
 	u expression.UnaryExpression,
-	row sql.Row) (interface{}, error) {
+	row sql.LazyRow) (interface{}, error) {
 
 	val, err := u.Child.Eval(ctx, row)
 	if err != nil {
@@ -60,7 +60,7 @@ func getDate(ctx *sql.Context,
 
 func getDatePart(ctx *sql.Context,
 	u expression.UnaryExpression,
-	row sql.Row,
+	row sql.LazyRow,
 	f func(interface{}) interface{}) (interface{}, error) {
 
 	date, err := getDate(ctx, u, row)
@@ -105,7 +105,7 @@ func (*Year) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID,
 }
 
 // Eval implements the Expression interface.
-func (y *Year) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (y *Year) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return getDatePart(ctx, y.UnaryExpression, row, year)
 }
 
@@ -150,7 +150,7 @@ func (q *Quarter) CollationCoercibility(ctx *sql.Context) (collation sql.Collati
 }
 
 // Eval implements the Expression interface.
-func (q *Quarter) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (q *Quarter) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	mon, err := getDatePart(ctx, q.UnaryExpression, row, month)
 	if err != nil {
 		return nil, err
@@ -205,7 +205,7 @@ func (*Month) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID
 }
 
 // Eval implements the Expression interface.
-func (m *Month) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (m *Month) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return getDatePart(ctx, m.UnaryExpression, row, month)
 }
 
@@ -251,7 +251,7 @@ func (*Day) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID, 
 }
 
 // Eval implements the Expression interface.
-func (d *Day) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *Day) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return getDatePart(ctx, d.UnaryExpression, row, day)
 }
 
@@ -298,7 +298,7 @@ func (*Weekday) CollationCoercibility(ctx *sql.Context) (collation sql.Collation
 }
 
 // Eval implements the Expression interface.
-func (d *Weekday) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *Weekday) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return getDatePart(ctx, d.UnaryExpression, row, weekday)
 }
 
@@ -344,7 +344,7 @@ func (*Hour) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID,
 }
 
 // Eval implements the Expression interface.
-func (h *Hour) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (h *Hour) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return getDatePart(ctx, h.UnaryExpression, row, hour)
 }
 
@@ -390,7 +390,7 @@ func (*Minute) CollationCoercibility(ctx *sql.Context) (collation sql.CollationI
 }
 
 // Eval implements the Expression interface.
-func (m *Minute) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (m *Minute) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return getDatePart(ctx, m.UnaryExpression, row, minute)
 }
 
@@ -436,7 +436,7 @@ func (*Second) CollationCoercibility(ctx *sql.Context) (collation sql.CollationI
 }
 
 // Eval implements the Expression interface.
-func (s *Second) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (s *Second) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return getDatePart(ctx, s.UnaryExpression, row, second)
 }
 
@@ -483,7 +483,7 @@ func (*DayOfWeek) CollationCoercibility(ctx *sql.Context) (collation sql.Collati
 }
 
 // Eval implements the Expression interface.
-func (d *DayOfWeek) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *DayOfWeek) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return getDatePart(ctx, d.UnaryExpression, row, dayOfWeek)
 }
 
@@ -529,7 +529,7 @@ func (*DayOfYear) CollationCoercibility(ctx *sql.Context) (collation sql.Collati
 }
 
 // Eval implements the Expression interface.
-func (d *DayOfYear) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *DayOfYear) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return getDatePart(ctx, d.UnaryExpression, row, dayOfYear)
 }
 
@@ -601,7 +601,7 @@ func (*YearWeek) CollationCoercibility(ctx *sql.Context) (collation sql.Collatio
 }
 
 // Eval implements the Expression interface.
-func (d *YearWeek) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *YearWeek) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	date, err := getDate(ctx, expression.UnaryExpression{Child: d.date}, row)
 	if err != nil {
 		return nil, err
@@ -705,7 +705,7 @@ func (*Week) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID,
 }
 
 // Eval implements the Expression interface.
-func (d *Week) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *Week) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	date, err := getDate(ctx, expression.UnaryExpression{Child: d.date}, row)
 	if err != nil {
 		return nil, err
@@ -989,7 +989,7 @@ func (n *Now) Children() []sql.Expression {
 }
 
 // Eval implements the sql.Expression interface.
-func (n *Now) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (n *Now) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	// Cannot evaluate with nil context
 	if ctx == nil {
 		return nil, fmt.Errorf("cannot Eval Now with nil context")
@@ -1183,7 +1183,7 @@ func (ut *UTCTimestamp) Resolved() bool { return true }
 func (ut *UTCTimestamp) Children() []sql.Expression { return nil }
 
 // Eval implements the sql.Expression interface.
-func (ut *UTCTimestamp) Eval(ctx *sql.Context, _ sql.Row) (interface{}, error) {
+func (ut *UTCTimestamp) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	t := ctx.QueryTime()
 	// TODO: UTC Timestamp needs to also handle precision arguments
 	nano := 1000 * (t.Nanosecond() / 1000)
@@ -1230,7 +1230,7 @@ func (*Date) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID,
 }
 
 // Eval implements the Expression interface.
-func (d *Date) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *Date) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return getDatePart(ctx, d.UnaryExpression, row, func(v interface{}) interface{} {
 		if v == nil {
 			return nil
@@ -1266,7 +1266,7 @@ func (dtf *UnaryDatetimeFunc) FunctionName() string {
 	return dtf.Name
 }
 
-func (dtf *UnaryDatetimeFunc) EvalChild(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (dtf *UnaryDatetimeFunc) EvalChild(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := dtf.Child.Eval(ctx, row)
 
 	if err != nil {
@@ -1317,7 +1317,7 @@ func (*DayName) CollationCoercibility(ctx *sql.Context) (collation sql.Collation
 	return ctx.GetCollation(), 4
 }
 
-func (d *DayName) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *DayName) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := d.EvalChild(ctx, row)
 	if err != nil {
 		ctx.Warn(1292, types.ErrConvertingToTime.New(val).Error())
@@ -1370,7 +1370,7 @@ func NewMicrosecond(arg sql.Expression) sql.Expression {
 	return &Microsecond{NewUnaryDatetimeFunc(arg, "MICROSECOND", types.Uint64)}
 }
 
-func (m *Microsecond) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (m *Microsecond) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := m.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -1416,7 +1416,7 @@ func (*MonthName) CollationCoercibility(ctx *sql.Context) (collation sql.Collati
 	return ctx.GetCollation(), 4
 }
 
-func (d *MonthName) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d *MonthName) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := d.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -1462,7 +1462,7 @@ func (*TimeToSec) CollationCoercibility(ctx *sql.Context) (collation sql.Collati
 	return sql.Collation_binary, 5
 }
 
-func (m *TimeToSec) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (m *TimeToSec) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := m.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -1508,7 +1508,7 @@ func (*WeekOfYear) CollationCoercibility(ctx *sql.Context) (collation sql.Collat
 	return sql.Collation_binary, 5
 }
 
-func (m *WeekOfYear) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (m *WeekOfYear) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := m.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -1602,7 +1602,7 @@ func (c *CurrTime) Children() []sql.Expression {
 }
 
 // Eval implements sql.Expression
-func (c *CurrTime) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (c *CurrTime) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	newNow, err := NewNow(c.prec)
 	if err != nil {
 		return nil, err
@@ -1662,7 +1662,7 @@ func (*Time) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID,
 }
 
 // Eval implements the Expression interface.
-func (t *Time) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (t *Time) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	v, err := t.UnaryExpression.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err

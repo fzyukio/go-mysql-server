@@ -25,11 +25,12 @@ import (
 )
 
 // HashOf returns a hash of the given value to be used as key in a cache.
-func HashOf(v Row) (uint64, error) {
+func HashOf(v LazyRow) (uint64, error) {
 	hash := digestPool.Get().(*xxhash.Digest)
 	hash.Reset()
 	defer digestPool.Put(hash)
-	for i, x := range v {
+	for i := 0; i < v.Count(); i++ {
+		x := v.SqlValue(i)
 		if i > 0 {
 			// separate each value in the row with a nil byte
 			if _, err := hash.Write([]byte{0}); err != nil {
@@ -101,7 +102,7 @@ func (l *lruCache) Dispose() {
 type rowsCache struct {
 	memory   Freeable
 	reporter Reporter
-	rows     []Row
+	rows     []LazyRow
 	rows2    []Row2
 }
 
@@ -109,7 +110,7 @@ func newRowsCache(memory Freeable, r Reporter) *rowsCache {
 	return &rowsCache{memory: memory, reporter: r}
 }
 
-func (c *rowsCache) Add(row Row) error {
+func (c *rowsCache) Add(row LazyRow) error {
 	if !releaseMemoryIfNeeded(c.reporter, c.memory.Free) {
 		return ErrNoMemoryAvailable.New()
 	}
@@ -118,7 +119,7 @@ func (c *rowsCache) Add(row Row) error {
 	return nil
 }
 
-func (c *rowsCache) Get() []Row { return c.rows }
+func (c *rowsCache) Get() []LazyRow { return c.rows }
 
 func (c *rowsCache) Add2(row2 Row2) error {
 	if !releaseMemoryIfNeeded(c.reporter, c.memory.Free) {

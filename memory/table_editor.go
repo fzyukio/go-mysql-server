@@ -142,37 +142,37 @@ func (t *tableEditor) StatementComplete(ctx *sql.Context) error {
 }
 
 // Insert inserts a new row into the table.
-func (t *tableEditor) Insert(ctx *sql.Context, row sql.Row) error {
+func (t *tableEditor) Insert(ctx *sql.Context, row sql.LazyRow) error {
 	if err := checkRow(t.editedTable.data.schema.Schema, row); err != nil {
 		return err
 	}
 
-	partitionRow, added, err := t.ea.Get(row)
+	partitionRow, added, err := t.ea.Get(row.SqlValues())
 	if err != nil {
 		return err
 	}
 
 	if added {
 		pkColIdxes := t.pkColumnIndexes()
-		return sql.NewUniqueKeyErr(formatRow(row, pkColIdxes), true, partitionRow)
+		return sql.NewUniqueKeyErr(formatRow(row.SqlValues(), pkColIdxes), true, partitionRow)
 	}
 
 	for i, cols := range t.uniqueIdxCols {
-		if hasNullForAnyCols(row, cols) {
+		if hasNullForAnyCols(row.SqlValues(), cols) {
 			continue
 		}
 		prefixLengths := t.prefixLengths[i]
-		existing, found, err := t.ea.GetByCols(row, cols, prefixLengths)
+		existing, found, err := t.ea.GetByCols(row.SqlValues(), cols, prefixLengths)
 		if err != nil {
 			return err
 		}
 
 		if found {
-			return sql.NewUniqueKeyErr(formatRow(row, cols), false, existing)
+			return sql.NewUniqueKeyErr(formatRow(row.SqlValues(), cols), false, existing)
 		}
 	}
 
-	err = t.ea.Insert(row)
+	err = t.ea.Insert(row.SqlValues())
 	if err != nil {
 		return err
 	}
@@ -181,13 +181,13 @@ func (t *tableEditor) Insert(ctx *sql.Context, row sql.Row) error {
 	idx := t.ea.TableData().autoColIdx
 	if idx >= 0 {
 		autoCol := t.ea.TableData().schema.Schema[idx]
-		cmp, err := autoCol.Type.Compare(row[idx], t.ea.TableData().autoIncVal)
+		cmp, err := autoCol.Type.Compare(row.SqlValue(idx), t.ea.TableData().autoIncVal)
 		if err != nil {
 			return err
 		}
 		if cmp > 0 {
 			// Provided value larger than autoIncVal, set autoIncVal to that value
-			v, _, err := types.Uint64.Convert(row[idx])
+			v, _, err := types.Uint64.Convert(row.SqlValue(idx))
 			if err != nil {
 				return err
 			}
@@ -203,12 +203,12 @@ func (t *tableEditor) Insert(ctx *sql.Context, row sql.Row) error {
 }
 
 // Delete the given row from the table.
-func (t *tableEditor) Delete(ctx *sql.Context, row sql.Row) error {
+func (t *tableEditor) Delete(ctx *sql.Context, row sql.LazyRow) error {
 	if err := checkRow(t.editedTable.Schema(), row); err != nil {
 		return err
 	}
 
-	err := t.ea.Delete(row)
+	err := t.ea.Delete(row.SqlValues())
 	if err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func (t *tableEditor) Delete(ctx *sql.Context, row sql.Row) error {
 }
 
 // Update updates the given row in the table.
-func (t *tableEditor) Update(ctx *sql.Context, oldRow sql.Row, newRow sql.Row) error {
+func (t *tableEditor) Update(ctx *sql.Context, oldRow, newRow sql.LazyRow) error {
 	if err := checkRow(t.editedTable.Schema(), oldRow); err != nil {
 		return err
 	}
@@ -225,13 +225,13 @@ func (t *tableEditor) Update(ctx *sql.Context, oldRow sql.Row, newRow sql.Row) e
 		return err
 	}
 
-	err := t.ea.Delete(oldRow)
+	err := t.ea.Delete(oldRow.SqlValues())
 	if err != nil {
 		return err
 	}
 
-	if t.pkColsDiffer(oldRow, newRow) {
-		partitionRow, added, err := t.ea.Get(newRow)
+	if t.pkColsDiffer(oldRow.SqlValues(), newRow.SqlValues()) {
+		partitionRow, added, err := t.ea.Get(newRow.SqlValues())
 		if err != nil {
 			return err
 		}
@@ -240,7 +240,7 @@ func (t *tableEditor) Update(ctx *sql.Context, oldRow sql.Row, newRow sql.Row) e
 			pkColIdxes := t.pkColumnIndexes()
 			vals := make([]interface{}, len(pkColIdxes))
 			for i := range pkColIdxes {
-				vals[i] = newRow[pkColIdxes[i]]
+				vals[i] = newRow.SqlValue(pkColIdxes[i])
 			}
 			return sql.NewUniqueKeyErr(fmt.Sprint(vals), true, partitionRow)
 		}
@@ -248,21 +248,21 @@ func (t *tableEditor) Update(ctx *sql.Context, oldRow sql.Row, newRow sql.Row) e
 
 	// Throw a unique key error if any unique indexes are defined
 	for i, cols := range t.uniqueIdxCols {
-		if hasNullForAnyCols(newRow, cols) {
+		if hasNullForAnyCols(newRow.SqlValues(), cols) {
 			continue
 		}
 		prefixLengths := t.prefixLengths[i]
-		existing, found, err := t.ea.GetByCols(newRow, cols, prefixLengths)
+		existing, found, err := t.ea.GetByCols(newRow.SqlValues(), cols, prefixLengths)
 		if err != nil {
 			return err
 		}
 
 		if found {
-			return sql.NewUniqueKeyErr(formatRow(newRow, cols), false, existing)
+			return sql.NewUniqueKeyErr(formatRow(newRow.SqlValues(), cols), false, existing)
 		}
 	}
 
-	err = t.ea.Insert(newRow)
+	err = t.ea.Insert(newRow.SqlValues())
 	if err != nil {
 		return err
 	}
@@ -531,7 +531,7 @@ func (pke *pkTableEditAccumulator) getRowKey(r sql.Row) string {
 
 // deleteHelper deletes the given row from the tableData.
 func (pke *pkTableEditAccumulator) deleteHelper(table *TableData, row sql.Row) error {
-	if err := checkRow(table.schema.Schema, row); err != nil {
+	if err := checkRow(table.schema.Schema, sql.NewSqlRowFromRow(row)); err != nil {
 		return err
 	}
 
@@ -778,7 +778,7 @@ func (k *keylessTableEditAccumulator) Clear() {
 
 // deleteHelper deletes a row from a keyless tableData, if it exists.
 func (k *keylessTableEditAccumulator) deleteHelper(table *TableData, row sql.Row) error {
-	if err := checkRow(table.schema.Schema, row); err != nil {
+	if err := checkRow(table.schema.Schema, sql.NewSqlRowFromRow(row)); err != nil {
 		return err
 	}
 
@@ -846,8 +846,8 @@ func formatRow(r sql.Row, idxs []int) string {
 	return b.String()
 }
 
-func checkRow(schema sql.Schema, row sql.Row) error {
-	for i, value := range row {
+func checkRow(schema sql.Schema, row sql.LazyRow) error {
+	for i, value := range row.SqlValues() {
 		c := schema[i]
 		if !c.Check(value) {
 			return sql.ErrInvalidType.New(value)
@@ -857,11 +857,11 @@ func checkRow(schema sql.Schema, row sql.Row) error {
 	return verifyRowTypes(row, schema)
 }
 
-func verifyRowTypes(row sql.Row, schema sql.Schema) error {
-	if len(row) == len(schema) {
+func verifyRowTypes(row sql.LazyRow, schema sql.Schema) error {
+	if row.Count() == len(schema) {
 		for i := range schema {
 			col := schema[i]
-			rowVal := row[i]
+			rowVal := row.SqlValue(i)
 			valType := reflect.TypeOf(rowVal)
 			expectedType := col.Type.ValueType()
 			if valType != expectedType && rowVal != nil && !valType.AssignableTo(expectedType) {

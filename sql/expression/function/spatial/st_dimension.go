@@ -101,7 +101,7 @@ func FindDimension(g types.GeometryValue) interface{} {
 }
 
 // Eval implements the sql.Expression interface.
-func (p *Dimension) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (p *Dimension) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	// Evaluate child
 	val, err := p.Child.Eval(ctx, row)
 	if err != nil {

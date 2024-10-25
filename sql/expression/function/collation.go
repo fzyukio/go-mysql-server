@@ -47,7 +47,7 @@ func (c *Collation) Description() string {
 }
 
 // Eval implements the sql.Expression.
-func (c *Collation) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (c *Collation) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := c.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (c *Coercibility) Description() string {
 }
 
 // Eval implements the sql.Expression.
-func (c *Coercibility) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (c *Coercibility) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := c.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func (c *Charset) Description() string {
 }
 
 // Eval implements the sql.Expression.
-func (c *Charset) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (c *Charset) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := c.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err

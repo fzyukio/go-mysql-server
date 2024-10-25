@@ -79,7 +79,7 @@ func (ce *CollatedExpression) CollationCoercibility(ctx *sql.Context) (collation
 }
 
 // Eval implements the sql.Expression interface.
-func (ce *CollatedExpression) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (ce *CollatedExpression) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	typ := ce.expr.Type()
 	if !types.IsText(typ) {
 		return nil, sql.ErrCollatedExprWrongType.New()

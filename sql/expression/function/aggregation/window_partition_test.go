@@ -84,7 +84,7 @@ func TestWindowPartitionIter(t *testing.T) {
 			ctx := sql.NewContext(context.Background(), sql.WithSession(memory.NewSession(sql.NewBaseSession(), pro)))
 
 			tt.Iter.child = mustNewRowIter(t, db, ctx)
-			res, err := sql.RowIterToRows(ctx, tt.Iter)
+			res, err := sql.RowIterToRows(ctx, tt.Iter, 0)
 			require.NoError(t, err)
 			require.Equal(t, tt.Expected, res)
 		})

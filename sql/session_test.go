@@ -53,14 +53,14 @@ func newTestNodeIterator() RowIter {
 	}
 }
 
-func (t *testNodeIterator) Next(ctx *Context) (Row, error) {
+func (t *testNodeIterator) Next(ctx *Context, row LazyRow) error {
 	select {
 	case <-ctx.Done():
-		return nil, io.EOF
+		return io.EOF
 
 	default:
 		t.Counter++
-		return NewRow(true), nil
+		return nil
 	}
 }
 
@@ -84,7 +84,7 @@ func TestSessionIterator(t *testing.T) {
 			cancelFunc()
 		}
 
-		_, err := iter.Next(ctx)
+		err := iter.Next(ctx, nil)
 
 		if counter > 5 {
 			require.Equal(io.EOF, err)

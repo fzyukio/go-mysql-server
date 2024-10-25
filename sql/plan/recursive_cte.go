@@ -240,7 +240,7 @@ func NewRecursiveTable(n string, s sql.Schema) *RecursiveTable {
 type RecursiveTable struct {
 	name   string
 	schema sql.Schema
-	Buf    []sql.Row
+	Buf    []sql.LazyRow
 	id     sql.TableId
 	cols   sql.ColSet
 }

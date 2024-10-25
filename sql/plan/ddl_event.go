@@ -235,7 +235,7 @@ func (c *CreateEvent) WithExpressions(e ...sql.Expression) (sql.Node, error) {
 }
 
 // RowIter implements the sql.Node interface.
-func (c *CreateEvent) RowIter(ctx *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (c *CreateEvent) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	eventCreationTime := ctx.QueryTime()
 	// TODO: event time values are evaluated in 'SYSTEM' TZ for now (should be session TZ)
 	eventDefinition, err := c.GetEventDefinition(ctx, eventCreationTime, eventCreationTime, time.Time{}, gmstime.SystemTimezoneOffset())
@@ -360,13 +360,13 @@ type createEventIter struct {
 }
 
 // Next implements the sql.RowIter interface.
-func (c *createEventIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (c *createEventIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	run := false
 	c.once.Do(func() {
 		run = true
 	})
 	if !run {
-		return nil, io.EOF
+		return io.EOF
 	}
 
 	mode := sql.LoadSqlMode(ctx)
@@ -375,7 +375,7 @@ func (c *createEventIter) Next(ctx *sql.Context) (sql.Row, error) {
 	// checks if the defined ENDS time is before STARTS time
 	if c.event.HasEnds {
 		if c.event.Ends.Sub(c.event.Starts).Seconds() < 0 {
-			return nil, fmt.Errorf("ENDS is either invalid or before STARTS")
+			return fmt.Errorf("ENDS is either invalid or before STARTS")
 		}
 	}
 
@@ -387,9 +387,9 @@ func (c *createEventIter) Next(ctx *sql.Context) (sql.Row, error) {
 				Code:    1537,
 				Message: fmt.Sprintf(err.Error()),
 			})
-			return sql.Row{types.NewOkResult(0)}, nil
+			return nil
 		}
-		return nil, err
+		return err
 	}
 
 	if c.event.HasExecuteAt {
@@ -400,7 +400,7 @@ func (c *createEventIter) Next(ctx *sql.Context) (sql.Row, error) {
 				c.event.Status = sql.EventStatus_Disable.String()
 				_, err = c.eventDb.UpdateEvent(ctx, c.event.Name, c.event)
 				if err != nil {
-					return nil, err
+					return err
 				}
 				ctx.Session.Warn(&sql.Warning{
 					Level:   "Note",
@@ -411,7 +411,7 @@ func (c *createEventIter) Next(ctx *sql.Context) (sql.Row, error) {
 				// If ON COMPLETION NOT PRESERVE is defined, the event is dropped immediately after creation.
 				err = c.eventDb.DropEvent(ctx, c.event.Name)
 				if err != nil {
-					return nil, err
+					return err
 				}
 				ctx.Session.Warn(&sql.Warning{
 					Level:   "Note",
@@ -419,7 +419,7 @@ func (c *createEventIter) Next(ctx *sql.Context) (sql.Row, error) {
 					Message: "Event execution time is in the past and ON COMPLETION NOT PRESERVE is set. The event was dropped immediately after creation.",
 				})
 			}
-			return sql.Row{types.NewOkResult(0)}, nil
+			return nil
 		}
 	}
 
@@ -428,7 +428,7 @@ func (c *createEventIter) Next(ctx *sql.Context) (sql.Row, error) {
 		c.eventScheduler.AddEvent(ctx, c.eventDb, c.event)
 	}
 
-	return sql.Row{types.NewOkResult(0)}, nil
+	return nil
 }
 
 // Close implements the sql.RowIter interface.
@@ -528,7 +528,7 @@ func (ost *OnScheduleTimestamp) String() string {
 	return fmt.Sprintf("%s %s%s", ost.field, ost.timestamp.String(), intervals)
 }
 
-func (ost *OnScheduleTimestamp) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (ost *OnScheduleTimestamp) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	panic("OnScheduleTimestamp.Eval is just a placeholder method and should not be called directly")
 }
 
@@ -619,7 +619,7 @@ func (d *DropEvent) IsReadOnly() bool {
 }
 
 // RowIter implements the sql.Node interface.
-func (d *DropEvent) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (d *DropEvent) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	eventDb, ok := d.Db.(sql.EventDatabase)
 	if !ok {
 		if d.IfExists {

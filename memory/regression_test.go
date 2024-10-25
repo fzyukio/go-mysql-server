@@ -34,10 +34,10 @@ func TestIssue361(t *testing.T) {
 			{Name: "json", Type: types.JSON, Nullable: false, Source: name},
 		}), nil)
 
-		old := sql.NewRow(types.JSONDocument{Val: []string{"foo", "bar"}})
-		new := sql.NewRow(types.JSONDocument{Val: []string{"foo"}})
+		old := sql.NewSqlRowFromRow(sql.NewRow(types.JSONDocument{Val: []string{"foo", "bar"}}))
+		new := sql.NewSqlRowFromRow(sql.NewRow(types.JSONDocument{Val: []string{"foo"}}))
 
-		table.Insert(ctx, old)
+		table.Insert(ctx, old.SqlValues())
 
 		up := table.Updater(ctx)
 		up.Update(ctx, old, new) // does not panic
@@ -48,9 +48,9 @@ func TestIssue361(t *testing.T) {
 			{Name: "json", Type: types.JSON, Nullable: false, Source: name},
 		}), nil)
 
-		row := sql.NewRow(types.JSONDocument{Val: []string{"foo", "bar"}})
+		row := sql.NewSqlRowFromRow(sql.NewRow(types.JSONDocument{Val: []string{"foo", "bar"}}))
 
-		table.Insert(ctx, row)
+		table.Insert(ctx, row.SqlValues())
 
 		up := table.Deleter(ctx)
 		up.Delete(ctx, row) // does not panic

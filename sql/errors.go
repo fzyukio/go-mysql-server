@@ -1029,14 +1029,14 @@ func UnwrapError(err error) error {
 type UniqueKeyError struct {
 	keyStr   string
 	IsPK     bool
-	Existing Row
+	Existing LazyRow
 }
 
 func NewUniqueKeyErr(keyStr string, isPK bool, existing Row) error {
 	ue := UniqueKeyError{
 		keyStr:   keyStr,
 		IsPK:     isPK,
-		Existing: existing,
+		Existing: NewSqlRowFromRow(existing),
 	}
 
 	if isPK {

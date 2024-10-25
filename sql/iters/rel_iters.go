@@ -47,21 +47,21 @@ func NewTopRowsIter(s sql.SortFields, limit int64, calcFoundRows bool, child sql
 	}
 }
 
-func (i *topRowsIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *topRowsIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if i.idx == -1 {
-		err := i.computeTopRows(ctx)
+		err := i.computeTopRows(ctx, row.Count())
 		if err != nil {
-			return nil, err
+			return err
 		}
 		i.idx = 0
 	}
 
 	if i.idx >= len(i.topRows) {
-		return nil, io.EOF
+		return io.EOF
 	}
-	row := i.topRows[i.idx]
+	sql.CopyToSqlRow(0, i.topRows[i.idx], row)
 	i.idx++
-	return row[:len(row)-1], nil
+	return nil
 }
 
 func (i *topRowsIter) Close(ctx *sql.Context) error {
@@ -74,17 +74,18 @@ func (i *topRowsIter) Close(ctx *sql.Context) error {
 	return i.childIter.Close(ctx)
 }
 
-func (i *topRowsIter) computeTopRows(ctx *sql.Context) error {
+func (i *topRowsIter) computeTopRows(ctx *sql.Context, sz int) error {
 	topRowsHeap := &expression.TopRowsHeap{
 		expression.Sorter{
 			SortFields: i.sortFields,
-			Rows:       []sql.Row{},
+			Rows:       []sql.LazyRow{},
 			LastError:  nil,
 			Ctx:        ctx,
 		},
 	}
 	for {
-		row, err := i.childIter.Next(ctx)
+		row := sql.NewSqlRow(sz)
+		err := i.childIter.Next(ctx, row)
 		if err == io.EOF {
 			break
 		}
@@ -93,7 +94,7 @@ func (i *topRowsIter) computeTopRows(ctx *sql.Context) error {
 		}
 		i.numFoundRows++
 
-		row = append(row, i.numFoundRows)
+		row.SetSqlValue(sz, i.numFoundRows)
 
 		heap.Push(topRowsHeap, row)
 		if int64(topRowsHeap.Len()) > i.limit {
@@ -105,7 +106,10 @@ func (i *topRowsIter) computeTopRows(ctx *sql.Context) error {
 	}
 
 	var err error
-	i.topRows, err = topRowsHeap.Rows()
+	topRows, err := topRowsHeap.Rows()
+	for _, r := range topRows {
+		i.topRows = append(i.topRows, r.SqlValues())
+	}
 	return err
 }
 
@@ -335,20 +339,19 @@ func (j *JsonTableRowIter) ResetAll() {
 	}
 }
 
-func (j *JsonTableRowIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (j *JsonTableRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if j.pos >= len(j.Data) {
-		return nil, io.EOF
+		return io.EOF
 	}
 	obj := j.Data[j.pos]
 
-	var row sql.Row
 	for i, col := range j.Cols {
 		pass := len(col.Cols) != 0 && i != j.currSib
 		rowPart, err := col.Next(obj, pass, j.pos+1)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		row = append(row, rowPart...)
+		row.SetSqlValue(i, rowPart)
 	}
 
 	if j.NextSibling() {
@@ -356,7 +359,7 @@ func (j *JsonTableRowIter) Next(ctx *sql.Context) (sql.Row, error) {
 		j.pos++
 	}
 
-	return row, nil
+	return nil
 }
 
 func (j *JsonTableRowIter) Close(ctx *sql.Context) error {
@@ -368,24 +371,24 @@ func (j *JsonTableRowIter) Close(ctx *sql.Context) error {
 type orderedDistinctIter struct {
 	childIter sql.RowIter
 	schema    sql.Schema
-	prevRow   sql.Row
+	prevRow   sql.LazyRow
 }
 
 func NewOrderedDistinctIter(child sql.RowIter, schema sql.Schema) *orderedDistinctIter {
 	return &orderedDistinctIter{childIter: child, schema: schema}
 }
 
-func (di *orderedDistinctIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (di *orderedDistinctIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	for {
-		row, err := di.childIter.Next(ctx)
+		err := di.childIter.Next(ctx, row)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if di.prevRow != nil {
 			ok, err := di.prevRow.Equals(row, di.schema)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			if ok {
@@ -394,7 +397,7 @@ func (di *orderedDistinctIter) Next(ctx *sql.Context) (sql.Row, error) {
 		}
 
 		di.prevRow = row
-		return row, nil
+		return nil
 	}
 }
 
@@ -405,17 +408,17 @@ func (di *orderedDistinctIter) Close(ctx *sql.Context) error {
 // TODO a queue is probably more optimal
 type RecursiveTableIter struct {
 	pos int
-	Buf []sql.Row
+	Buf []sql.LazyRow
 }
 
 var _ sql.RowIter = (*RecursiveTableIter)(nil)
 
-func (r *RecursiveTableIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (r *RecursiveTableIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if r.Buf == nil || r.pos >= len(r.Buf) {
-		return nil, io.EOF
+		return io.EOF
 	}
 	r.pos++
-	return r.Buf[r.pos-1], nil
+	return nil
 }
 
 func (r *RecursiveTableIter) Close(ctx *sql.Context) error {
@@ -430,30 +433,30 @@ type LimitIter struct {
 	Limit         int64
 }
 
-func (li *LimitIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (li *LimitIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if li.currentPos >= li.Limit {
 		// If we were asked to calc all found rows, then when we are past the limit we iterate over the rest of the
 		// result set to count it
 		if li.CalcFoundRows {
 			for {
-				_, err := li.ChildIter.Next(ctx)
+				err := li.ChildIter.Next(ctx, nil)
 				if err != nil {
-					return nil, err
+					return err
 				}
 				li.currentPos++
 			}
 		}
 
-		return nil, io.EOF
+		return io.EOF
 	}
 
-	childRow, err := li.ChildIter.Next(ctx)
+	err := li.ChildIter.Next(ctx, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	li.currentPos++
 
-	return childRow, nil
+	return nil
 }
 
 func (li *LimitIter) Close(ctx *sql.Context) error {
@@ -471,7 +474,7 @@ func (li *LimitIter) Close(ctx *sql.Context) error {
 type sortIter struct {
 	sortFields sql.SortFields
 	childIter  sql.RowIter
-	sortedRows []sql.Row
+	sortedRows []sql.LazyRow
 	idx        int
 }
 
@@ -485,21 +488,21 @@ func NewSortIter(s sql.SortFields, child sql.RowIter) *sortIter {
 	}
 }
 
-func (i *sortIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *sortIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if i.idx == -1 {
-		err := i.computeSortedRows(ctx)
+		err := i.computeSortedRows(ctx, row.Count())
 		if err != nil {
-			return nil, err
+			return err
 		}
 		i.idx = 0
 	}
 
 	if i.idx >= len(i.sortedRows) {
-		return nil, io.EOF
+		return io.EOF
 	}
-	row := i.sortedRows[i.idx]
+	sql.CopyToSqlRow(0, i.sortedRows[i.idx].SqlValues(), row)
 	i.idx++
-	return row, nil
+	return nil
 }
 
 func (i *sortIter) Close(ctx *sql.Context) error {
@@ -507,12 +510,13 @@ func (i *sortIter) Close(ctx *sql.Context) error {
 	return i.childIter.Close(ctx)
 }
 
-func (i *sortIter) computeSortedRows(ctx *sql.Context) error {
+func (i *sortIter) computeSortedRows(ctx *sql.Context, sz int) error {
 	cache, dispose := ctx.Memory.NewRowsCache()
 	defer dispose()
 
 	for {
-		row, err := i.childIter.Next(ctx)
+		row := sql.NewSqlRow(sz)
+		err := i.childIter.Next(ctx, row)
 
 		if err == io.EOF {
 			break
@@ -561,19 +565,19 @@ func NewDistinctIter(ctx *sql.Context, child sql.RowIter) *distinctIter {
 	}
 }
 
-func (di *distinctIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (di *distinctIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	for {
-		row, err := di.childIter.Next(ctx)
+		err := di.childIter.Next(ctx, nil)
 		if err != nil {
 			if err == io.EOF {
 				di.Dispose()
 			}
-			return nil, err
+			return err
 		}
 
 		hash, err := sql.HashOf(row)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if _, err := di.seen.Get(hash); err == nil {
@@ -581,10 +585,10 @@ func (di *distinctIter) Next(ctx *sql.Context) (sql.Row, error) {
 		}
 
 		if err := di.seen.Put(hash, struct{}{}); err != nil {
-			return nil, err
+			return err
 		}
 
-		return row, nil
+		return nil
 	}
 }
 
@@ -604,24 +608,24 @@ type UnionIter struct {
 	NextIter func(ctx *sql.Context) (sql.RowIter, error)
 }
 
-func (ui *UnionIter) Next(ctx *sql.Context) (sql.Row, error) {
-	res, err := ui.Cur.Next(ctx)
+func (ui *UnionIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	err := ui.Cur.Next(ctx, nil)
 	if err == io.EOF {
 		if ui.NextIter == nil {
-			return nil, io.EOF
+			return io.EOF
 		}
 		err = ui.Cur.Close(ctx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		ui.Cur, err = ui.NextIter(ctx)
 		ui.NextIter = nil
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return ui.Cur.Next(ctx)
+		return ui.Cur.Next(ctx, nil)
 	}
-	return res, err
+	return err
 }
 
 func (ui *UnionIter) Close(ctx *sql.Context) error {
@@ -638,18 +642,18 @@ type IntersectIter struct {
 	cache        map[uint64]int
 }
 
-func (ii *IntersectIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (ii *IntersectIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if !ii.cached {
 		ii.cache = make(map[uint64]int)
 		for {
-			res, err := ii.RIter.Next(ctx)
+			err := ii.RIter.Next(ctx, row)
 			if err != nil && err != io.EOF {
-				return nil, err
+				return err
 			}
 
-			hash, herr := sql.HashOf(res)
+			hash, herr := sql.HashOf(row)
 			if herr != nil {
-				return nil, herr
+				return herr
 			}
 			if _, ok := ii.cache[hash]; !ok {
 				ii.cache[hash] = 0
@@ -664,14 +668,14 @@ func (ii *IntersectIter) Next(ctx *sql.Context) (sql.Row, error) {
 	}
 
 	for {
-		res, err := ii.LIter.Next(ctx)
+		err := ii.LIter.Next(ctx, row)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		hash, herr := sql.HashOf(res)
+		hash, herr := sql.HashOf(row)
 		if herr != nil {
-			return nil, herr
+			return herr
 		}
 		if _, ok := ii.cache[hash]; !ok {
 			continue
@@ -681,7 +685,7 @@ func (ii *IntersectIter) Next(ctx *sql.Context) (sql.Row, error) {
 		}
 		ii.cache[hash]--
 
-		return res, nil
+		return nil
 	}
 }
 
@@ -705,18 +709,18 @@ type ExceptIter struct {
 	cache        map[uint64]int
 }
 
-func (ei *ExceptIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (ei *ExceptIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if !ei.cached {
 		ei.cache = make(map[uint64]int)
 		for {
-			res, err := ei.RIter.Next(ctx)
+			err := ei.RIter.Next(ctx, row)
 			if err != nil && err != io.EOF {
-				return nil, err
+				return err
 			}
 
-			hash, herr := sql.HashOf(res)
+			hash, herr := sql.HashOf(row)
 			if herr != nil {
-				return nil, herr
+				return herr
 			}
 			if _, ok := ei.cache[hash]; !ok {
 				ei.cache[hash] = 0
@@ -731,20 +735,20 @@ func (ei *ExceptIter) Next(ctx *sql.Context) (sql.Row, error) {
 	}
 
 	for {
-		res, err := ei.LIter.Next(ctx)
+		err := ei.LIter.Next(ctx, row)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		hash, herr := sql.HashOf(res)
+		hash, herr := sql.HashOf(row)
 		if herr != nil {
-			return nil, herr
+			return herr
 		}
 		if _, ok := ei.cache[hash]; !ok {
-			return res, nil
+			return nil
 		}
 		if ei.cache[hash] <= 0 {
-			return res, nil
+			return nil
 		}
 		ei.cache[hash]--
 	}

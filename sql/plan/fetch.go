@@ -129,12 +129,12 @@ type fetchIter struct {
 var _ sql.RowIter = (*fetchIter)(nil)
 
 // Next implements the interface sql.RowIter.
-func (f *fetchIter) Next(ctx *sql.Context) (sql.Row, error) {
-	row, err := f.rowIter.Next(ctx)
+func (f *fetchIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	err := f.rowIter.Next(ctx, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return row, nil
+	return nil
 }
 
 // Close implements the interface sql.RowIter.

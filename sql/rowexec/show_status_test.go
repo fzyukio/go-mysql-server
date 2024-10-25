@@ -37,7 +37,7 @@ func TestShowStatus(t *testing.T) {
 	require.NoError(err)
 
 	for {
-		res, err = iter.Next(ctx)
+		err = iter.Next(ctx, nil)
 		if err == io.EOF {
 			break
 		}

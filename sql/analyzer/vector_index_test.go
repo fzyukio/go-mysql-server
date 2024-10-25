@@ -125,7 +125,7 @@ func TestVectorIndex(t *testing.T) {
 
 			iter, err := rowexec.DefaultBuilder.Build(ctx, res, nil)
 			require.NoError(t, err)
-			rows, err = sql.RowIterToRows(ctx, iter)
+			rows, err = sql.RowIterToRows(ctx, iter, 0)
 			require.NoError(t, err)
 
 			require.Equal(t, rows, testCase.expectedRows)

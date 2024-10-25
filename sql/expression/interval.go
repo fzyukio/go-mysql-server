@@ -53,7 +53,7 @@ func (*Interval) CollationCoercibility(ctx *sql.Context) (collation sql.Collatio
 func (i *Interval) IsNullable() bool { return i.Child.IsNullable() }
 
 // Eval implements the sql.Expression interface.
-func (i *Interval) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (i *Interval) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	panic("Interval.Eval is just a placeholder method and should not be called directly")
 }
 
@@ -65,7 +65,7 @@ var (
 // EvalDelta evaluates the expression returning a TimeDelta. This method should
 // be used instead of Eval, as this expression returns a TimeDelta, which is not
 // a valid value that can be returned in Eval.
-func (i *Interval) EvalDelta(ctx *sql.Context, row sql.Row) (*TimeDelta, error) {
+func (i *Interval) EvalDelta(ctx *sql.Context, row sql.LazyRow) (*TimeDelta, error) {
 	val, err := i.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err

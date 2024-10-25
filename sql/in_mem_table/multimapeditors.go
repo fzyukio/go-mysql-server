@@ -34,8 +34,8 @@ type ValueOps[V any] struct {
 	UpdateWithRow func(*sql.Context, sql.Row, V) (V, error)
 }
 
-func Insert[V any](ctx *sql.Context, ops *ValueOps[V], is IndexedSet[V], row sql.Row) error {
-	e, err := ops.FromRow(ctx, row)
+func Insert[V any](ctx *sql.Context, ops *ValueOps[V], is IndexedSet[V], row sql.LazyRow) error {
+	e, err := ops.FromRow(ctx, row.SqlValues())
 	if err != nil {
 		return err
 	}
@@ -47,8 +47,8 @@ func Insert[V any](ctx *sql.Context, ops *ValueOps[V], is IndexedSet[V], row sql
 	return nil
 }
 
-func Delete[V any](ctx *sql.Context, ops *ValueOps[V], is IndexedSet[V], row sql.Row) error {
-	e, err := ops.FromRow(ctx, row)
+func Delete[V any](ctx *sql.Context, ops *ValueOps[V], is IndexedSet[V], row sql.LazyRow) error {
+	e, err := ops.FromRow(ctx, row.SqlValues())
 	if err != nil {
 		return err
 	}
@@ -57,8 +57,8 @@ func Delete[V any](ctx *sql.Context, ops *ValueOps[V], is IndexedSet[V], row sql
 	return nil
 }
 
-func Update[V any](ctx *sql.Context, ops *ValueOps[V], is IndexedSet[V], old, new sql.Row) error {
-	e, err := ops.FromRow(ctx, old)
+func Update[V any](ctx *sql.Context, ops *ValueOps[V], is IndexedSet[V], old, new sql.LazyRow) error {
+	e, err := ops.FromRow(ctx, old.SqlValues())
 	if err != nil {
 		return err
 	}
@@ -67,14 +67,14 @@ func Update[V any](ctx *sql.Context, ops *ValueOps[V], is IndexedSet[V], old, ne
 	if len(es) == 1 {
 		old := e
 		e := es[0]
-		e, err = ops.UpdateWithRow(ctx, new, e)
+		e, err = ops.UpdateWithRow(ctx, new.SqlValues(), e)
 		if err != nil {
 			return err
 		}
 		is.Remove(old)
 		is.Put(e)
 	} else {
-		e, err = ops.FromRow(ctx, new)
+		e, err = ops.FromRow(ctx, new.SqlValues())
 		if err != nil {
 			return err
 		}
@@ -108,15 +108,15 @@ func (e *IndexedSetTableEditor[V]) Close(ctx *sql.Context) error {
 	return nil
 }
 
-func (e *IndexedSetTableEditor[V]) Insert(ctx *sql.Context, row sql.Row) error {
+func (e *IndexedSetTableEditor[V]) Insert(ctx *sql.Context, row sql.LazyRow) error {
 	return Insert[V](ctx, &e.Ops, e.Set, row)
 }
 
-func (e *IndexedSetTableEditor[V]) Delete(ctx *sql.Context, row sql.Row) error {
+func (e *IndexedSetTableEditor[V]) Delete(ctx *sql.Context, row sql.LazyRow) error {
 	return Delete[V](ctx, &e.Ops, e.Set, row)
 }
 
-func (e *IndexedSetTableEditor[V]) Update(ctx *sql.Context, old, new sql.Row) error {
+func (e *IndexedSetTableEditor[V]) Update(ctx *sql.Context, old sql.LazyRow, new sql.LazyRow) error {
 	return Update[V](ctx, &e.Ops, e.Set, old, new)
 }
 
@@ -197,14 +197,14 @@ func (e *MultiIndexedSetTableEditor[V]) Close(ctx *sql.Context) error {
 	return nil
 }
 
-func (e *MultiIndexedSetTableEditor[V]) Insert(ctx *sql.Context, row sql.Row) error {
-	return MultiInsert[V](ctx, &e.Ops, e.Set, row)
+func (e *MultiIndexedSetTableEditor[V]) Insert(ctx *sql.Context, row sql.LazyRow) error {
+	return MultiInsert[V](ctx, &e.Ops, e.Set, row.SqlValues())
 }
 
-func (e *MultiIndexedSetTableEditor[V]) Delete(ctx *sql.Context, row sql.Row) error {
-	return MultiDelete[V](ctx, &e.Ops, e.Set, row)
+func (e *MultiIndexedSetTableEditor[V]) Delete(ctx *sql.Context, row sql.LazyRow) error {
+	return MultiDelete[V](ctx, &e.Ops, e.Set, row.SqlValues())
 }
 
-func (e *MultiIndexedSetTableEditor[V]) Update(ctx *sql.Context, old, new sql.Row) error {
-	return MultiUpdate[V](ctx, &e.Ops, e.Set, old, new)
+func (e *MultiIndexedSetTableEditor[V]) Update(ctx *sql.Context, old sql.LazyRow, new sql.LazyRow) error {
+	return MultiUpdate[V](ctx, &e.Ops, e.Set, old.SqlValues(), new.SqlValues())
 }

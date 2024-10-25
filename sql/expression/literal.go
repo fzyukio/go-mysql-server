@@ -71,7 +71,7 @@ func (lit *Literal) CollationCoercibility(ctx *sql.Context) (collation sql.Colla
 }
 
 // Eval implements the Expression interface.
-func (lit *Literal) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (lit *Literal) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return lit.value, nil
 }
 

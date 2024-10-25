@@ -45,17 +45,17 @@ func (e StatementLockingTableEditor) StatementComplete(ctx *sql.Context) error {
 }
 
 // Insert implements the sql.RowInserter interface.
-func (e StatementLockingTableEditor) Insert(ctx *sql.Context, row sql.Row) error {
+func (e StatementLockingTableEditor) Insert(ctx *sql.Context, row sql.LazyRow) error {
 	return e.E.Insert(ctx, row)
 }
 
 // Update implements the sql.RowUpdater interface.
-func (e StatementLockingTableEditor) Update(ctx *sql.Context, old sql.Row, new sql.Row) error {
+func (e StatementLockingTableEditor) Update(ctx *sql.Context, old sql.LazyRow, new sql.LazyRow) error {
 	return e.E.Update(ctx, old, new)
 }
 
 // Delete implements the sql.RowDeleter interface.
-func (e StatementLockingTableEditor) Delete(ctx *sql.Context, row sql.Row) error {
+func (e StatementLockingTableEditor) Delete(ctx *sql.Context, row sql.LazyRow) error {
 	return e.E.Delete(ctx, row)
 }
 
@@ -85,21 +85,21 @@ func (e OperationLockingTableEditor) StatementComplete(ctx *sql.Context) error {
 }
 
 // Insert implements the sql.RowInserter interface.
-func (e OperationLockingTableEditor) Insert(ctx *sql.Context, row sql.Row) error {
+func (e OperationLockingTableEditor) Insert(ctx *sql.Context, row sql.LazyRow) error {
 	e.L.Lock()
 	defer e.L.Unlock()
 	return e.E.Insert(ctx, row)
 }
 
 // Update implements the sql.RowUpdater interface.
-func (e OperationLockingTableEditor) Update(ctx *sql.Context, old sql.Row, new sql.Row) error {
+func (e OperationLockingTableEditor) Update(ctx *sql.Context, old sql.LazyRow, new sql.LazyRow) error {
 	e.L.Lock()
 	defer e.L.Unlock()
 	return e.E.Update(ctx, old, new)
 }
 
 // Delete implements the sql.RowDeleter interface.
-func (e OperationLockingTableEditor) Delete(ctx *sql.Context, row sql.Row) error {
+func (e OperationLockingTableEditor) Delete(ctx *sql.Context, row sql.LazyRow) error {
 	e.L.Lock()
 	defer e.L.Unlock()
 	return e.E.Delete(ctx, row)

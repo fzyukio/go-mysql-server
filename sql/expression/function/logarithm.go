@@ -116,10 +116,7 @@ func (l *LogBase) IsNullable() bool {
 }
 
 // Eval implements the Expression interface.
-func (l *LogBase) Eval(
-	ctx *sql.Context,
-	row sql.Row,
-) (interface{}, error) {
+func (l *LogBase) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	v, err := l.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -198,10 +195,7 @@ func (l *Log) IsNullable() bool {
 }
 
 // Eval implements the Expression interface.
-func (l *Log) Eval(
-	ctx *sql.Context,
-	row sql.Row,
-) (interface{}, error) {
+func (l *Log) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	left, err := l.LeftChild.Eval(ctx, row)
 	if err != nil {
 		return nil, err

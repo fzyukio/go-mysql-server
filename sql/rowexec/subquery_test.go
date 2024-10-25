@@ -90,7 +90,7 @@ func TestSubqueryMultipleRows(t *testing.T) {
 		plan.NewResolvedTable(table, nil, nil),
 	), "select t from foo").WithExecBuilder(DefaultBuilder)
 
-	values, err := subquery.EvalMultiple(ctx, nil)
+	err := subquery.EvalMultiple(ctx, nil, nil)
 	require.NoError(err)
 	require.Equal(values, []interface{}{"one", "two", "three"})
 }

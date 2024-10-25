@@ -58,7 +58,7 @@ func (*MD5) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID, 
 }
 
 // Eval implements sql.Expression
-func (f *MD5) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *MD5) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	arg, err := f.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (*SHA1) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID,
 }
 
 // Eval implements sql.Expression
-func (f *SHA1) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *SHA1) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	arg, err := f.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -168,7 +168,7 @@ func (*SHA2) CollationCoercibility(ctx *sql.Context) (collation sql.CollationID,
 }
 
 // Eval implements sql.Expression
-func (f *SHA2) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *SHA2) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	arg, err := f.LeftChild.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -266,7 +266,7 @@ func (*Compress) CollationCoercibility(ctx *sql.Context) (collation sql.Collatio
 }
 
 // Eval implements sql.Expression
-func (f *Compress) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *Compress) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	arg, err := f.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -350,7 +350,7 @@ func (*Uncompress) CollationCoercibility(ctx *sql.Context) (collation sql.Collat
 }
 
 // Eval implements sql.Expression
-func (f *Uncompress) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *Uncompress) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	arg, err := f.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -438,7 +438,7 @@ func (*UncompressedLength) CollationCoercibility(ctx *sql.Context) (collation sq
 }
 
 // Eval implements sql.Expression
-func (f *UncompressedLength) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *UncompressedLength) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	arg, err := f.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err
@@ -504,7 +504,7 @@ func (*ValidatePasswordStrength) CollationCoercibility(ctx *sql.Context) (collat
 }
 
 // Eval implements sql.Expression
-func (f *ValidatePasswordStrength) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *ValidatePasswordStrength) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	arg, err := f.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err

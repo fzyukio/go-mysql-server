@@ -325,7 +325,7 @@ func (n *testNode) Children() []sql.Node {
 	return n.children
 }
 
-func (n *testNode) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (n *testNode) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	return nil, nil
 }
 

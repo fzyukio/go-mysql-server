@@ -74,7 +74,7 @@ func TestCrossJoin(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(iter)
 
-	row, err := iter.Next(ctx)
+	err := iter.Next(ctx, nil)
 	require.NoError(err)
 	require.NotNil(row)
 
@@ -89,7 +89,7 @@ func TestCrossJoin(t *testing.T) {
 	require.Equal(int32(1), row[6])
 	require.Equal(int64(2), row[7])
 
-	row, err = iter.Next(ctx)
+	err = iter.Next(ctx, nil)
 	require.NoError(err)
 	require.NotNil(row)
 
@@ -103,13 +103,13 @@ func TestCrossJoin(t *testing.T) {
 	require.Equal(int64(4), row[7])
 
 	for i := 0; i < 2; i++ {
-		row, err = iter.Next(ctx)
+		err = iter.Next(ctx, nil)
 		require.NoError(err)
 		require.NotNil(row)
 	}
 
 	// total: 4 rows
-	row, err = iter.Next(ctx)
+	err = iter.Next(ctx, nil)
 	require.NotNil(err)
 	require.Equal(err, io.EOF)
 	require.Nil(row)
@@ -135,7 +135,7 @@ func TestCrossJoin_Empty(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(iter)
 
-	row, err := iter.Next(ctx)
+	err := iter.Next(ctx, nil)
 	require.Equal(io.EOF, err)
 	require.Nil(row)
 
@@ -152,7 +152,7 @@ func TestCrossJoin_Empty(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(iter)
 
-	row, err = iter.Next(ctx)
+	err = iter.Next(ctx, nil)
 	require.Equal(io.EOF, err)
 	require.Nil(row)
 }

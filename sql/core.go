@@ -36,7 +36,7 @@ type Expression interface {
 	// IsNullable returns whether the expression can be null.
 	IsNullable() bool
 	// Eval evaluates the given row and returns a result.
-	Eval(ctx *Context, row Row) (interface{}, error)
+	Eval(ctx *Context, row LazyRow) (interface{}, error)
 	// Children returns the children expressions of this expression.
 	Children() []Expression
 	// WithChildren returns a copy of the expression with children replaced.
@@ -89,14 +89,14 @@ type Node interface {
 
 // NodeExecBuilder converts a sql.Node tree into a RowIter.
 type NodeExecBuilder interface {
-	Build(ctx *Context, n Node, r Row) (RowIter, error)
+	Build(ctx *Context, n Node, r LazyRow) (RowIter, error)
 }
 
 // ExecSourceRel is a node that has no children and is directly
 // row generating.
 type ExecSourceRel interface {
 	Node
-	RowIter(ctx *Context, r Row) (RowIter, error)
+	RowIter(ctx *Context, r LazyRow) (RowIter, error)
 }
 
 // Nameable is something that has a name.
@@ -342,7 +342,7 @@ func ConvertToVector(v interface{}) ([]float64, error) {
 
 // EvaluateCondition evaluates a condition, which is an expression whose value
 // will be nil or coerced boolean.
-func EvaluateCondition(ctx *Context, cond Expression, row Row) (interface{}, error) {
+func EvaluateCondition(ctx *Context, cond Expression, row LazyRow) (interface{}, error) {
 	defer trace2.StartRegion(ctx, "EvaluateCondition").End()
 
 	v, err := cond.Eval(ctx, row)

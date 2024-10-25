@@ -74,7 +74,7 @@ func (s *StrCmp) WithChildren(children ...sql.Expression) (sql.Expression, error
 	return NewStrCmp(children[0], children[1]), nil
 }
 
-func (s *StrCmp) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (s *StrCmp) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	if s.LeftChild == nil || s.RightChild == nil {
 		return nil, nil
 	}

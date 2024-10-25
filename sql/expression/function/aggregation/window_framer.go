@@ -564,7 +564,7 @@ func nextPeerGroup(ctx *sql.Context, pos, partitionEnd int, orderBy []sql.Expres
 	if pos >= partitionEnd || pos > len(buffer) {
 		return sql.WindowInterval{}, nil
 	}
-	var row sql.Row
+	var row sql.LazyRow
 	i := pos + 1
 	last := buffer[pos]
 	for i < partitionEnd {
@@ -582,8 +582,8 @@ func nextPeerGroup(ctx *sql.Context, pos, partitionEnd int, orderBy []sql.Expres
 
 // isNewOrderByValue compares the order by columns between two rows, returning true when the last row is null or
 // when the next row's orderBy columns are unique
-func isNewOrderByValue(ctx *sql.Context, orderByExprs []sql.Expression, last sql.Row, row sql.Row) (bool, error) {
-	if len(last) == 0 {
+func isNewOrderByValue(ctx *sql.Context, orderByExprs []sql.Expression, last, row sql.LazyRow) (bool, error) {
+	if last.Count() == 0 {
 		return true, nil
 	}
 

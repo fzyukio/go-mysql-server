@@ -95,12 +95,12 @@ const (
 )
 
 // HashRow returns a 64 character lowercase hexadecimal hash of the given row. This is intended for use with keyless tables.
-func HashRow(row sql.Row) (string, error) {
+func HashRow(row sql.LazyRow) (string, error) {
 	h := sha256.New()
 	// Since we can't represent a NULL value in binary, we instead append the NULL results to the end, which will
 	// give us a unique representation for representing NULL values.
-	valIsNull := make([]bool, len(row))
-	for i, val := range row {
+	valIsNull := make([]bool, row.Count())
+	for i, val := range row.SqlValues() {
 		var err error
 		valIsNull[i], err = writeHashedValue(h, val)
 		if err != nil {
@@ -739,8 +739,9 @@ func CreateFulltextIndexes(ctx *sql.Context, database Database, parent sql.Table
 
 	// Finally, loop over all of the rows and write them to the tables
 	editor.StatementBegin(ctx)
-	row, err := rowIter.Next(ctx)
-	for ; err == nil; row, err = rowIter.Next(ctx) {
+	for {
+		row := sql.NewSqlRow(len(tblSch))
+		err = rowIter.Next(ctx, row)
 		if err = editor.Insert(ctx, row); err != nil {
 			return err
 		}

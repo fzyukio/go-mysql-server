@@ -70,14 +70,14 @@ type deleteIter struct {
 	closed    bool
 }
 
-func (d *deleteIter) Next(ctx *sql.Context) (sql.Row, error) {
-	row, err := d.childIter.Next(ctx)
+func (d *deleteIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	err := d.childIter.Next(ctx, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return ctx.Err()
 	default:
 	}
 
@@ -85,20 +85,20 @@ func (d *deleteIter) Next(ctx *sql.Context) (sql.Row, error) {
 	// the columns that are part of that target table. This means looking at the position in the schema for
 	// the target table and also removing any prepended columns contributed by outer scopes.
 	fullSchemaLength := len(d.schema)
-	rowLength := len(row)
+	rowLength := row.Count()
 	for _, deleter := range d.deleters {
 		schemaLength := deleter.schemaEnd - deleter.schemaStart
 		subSlice := row
 		if schemaLength < rowLength {
-			subSlice = row[(rowLength - fullSchemaLength + deleter.schemaStart):(rowLength - fullSchemaLength + deleter.schemaEnd)]
+			subSlice = row.SelectRange((rowLength - fullSchemaLength + deleter.schemaStart), (rowLength - fullSchemaLength + deleter.schemaEnd))
 		}
 		err = deleter.deleter.Delete(ctx, subSlice)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return row, nil
+	return nil
 }
 
 func (d *deleteIter) Close(ctx *sql.Context) error {

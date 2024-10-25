@@ -35,7 +35,7 @@ type BaseBuilder struct {
 	triggerSavePointCounter int // tracks the number of save points that have been created by triggers
 }
 
-func (b *BaseBuilder) Build(ctx *sql.Context, n sql.Node, r sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) Build(ctx *sql.Context, n sql.Node, r sql.LazyRow) (sql.RowIter, error) {
 	defer trace.StartRegion(ctx, "ExecBuilder.Build").End()
 	return b.buildNodeExec(ctx, n, r)
 }

@@ -72,7 +72,7 @@ func (td *Extract) WithChildren(children ...sql.Expression) (sql.Expression, err
 }
 
 // Eval implements the Expression interface.
-func (td *Extract) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (td *Extract) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	if td.LeftChild == nil || td.RightChild == nil {
 		return nil, nil
 	}

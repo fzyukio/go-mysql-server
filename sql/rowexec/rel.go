@@ -37,7 +37,7 @@ import (
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
-func (b *BaseBuilder) buildTopN(ctx *sql.Context, n *plan.TopN, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildTopN(ctx *sql.Context, n *plan.TopN, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.TopN")
 	i, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
@@ -52,7 +52,7 @@ func (b *BaseBuilder) buildTopN(ctx *sql.Context, n *plan.TopN, row sql.Row) (sq
 	return sql.NewSpanIter(span, iters.NewTopRowsIter(n.Fields, limit, n.CalcFoundRows, i, len(n.Child.Schema()))), nil
 }
 
-func (b *BaseBuilder) buildValueDerivedTable(ctx *sql.Context, n *plan.ValueDerivedTable, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildValueDerivedTable(ctx *sql.Context, n *plan.ValueDerivedTable, row sql.LazyRow) (sql.RowIter, error) {
 	rows := make([]sql.Row, len(n.ExpressionTuples))
 	for i, et := range n.ExpressionTuples {
 		vals := make([]interface{}, len(et))
@@ -79,38 +79,39 @@ func (b *BaseBuilder) buildValueDerivedTable(ctx *sql.Context, n *plan.ValueDeri
 	return sql.RowsToRowIter(rows...), nil
 }
 
-func (b *BaseBuilder) buildValues(ctx *sql.Context, n *plan.Values, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildValues(ctx *sql.Context, n *plan.Values, row sql.LazyRow) (sql.RowIter, error) {
 	rows := make([]sql.Row, len(n.ExpressionTuples))
 	for i, et := range n.ExpressionTuples {
-		vals := make(sql.Row, len(et))
+		vals := sql.NewSqlRow(len(et))
 
 		// A non-zero row means that we're executing in a trigger context, so we evaluate against the row provided
 		// TODO: this probably won't work with triggers that define explicit DEFAULT values
-		if len(row) > 0 {
+		if row.Count() > 0 {
 			for j, e := range et {
 				var err error
-				vals[j], err = e.Eval(ctx, row)
+				val, err := e.Eval(ctx, row)
 				if err != nil {
 					return nil, err
 				}
+				vals.SetSqlValue(j, val)
 			}
 		} else {
 			// For the values node, the relevant values to evaluate are the tuple itself. We may need to project
 			// DEFAULT values onto them, which ProjectRow handles correctly (could require multiple passes)
 			var err error
-			vals, err = ProjectRow(ctx, et, vals)
+			err = ProjectRow(ctx, et, vals, 0)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		rows[i] = sql.NewRow(vals...)
+		rows[i] = vals.SqlValues()
 	}
 
 	return sql.RowsToRowIter(rows...), nil
 }
 
-func (b *BaseBuilder) buildWindow(ctx *sql.Context, n *plan.Window, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildWindow(ctx *sql.Context, n *plan.Window, row sql.LazyRow) (sql.RowIter, error) {
 	childIter, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
 		return nil, err
@@ -122,7 +123,7 @@ func (b *BaseBuilder) buildWindow(ctx *sql.Context, n *plan.Window, row sql.Row)
 	return aggregation.NewWindowIter(blockIters, outputOrdinals, childIter), nil
 }
 
-func (b *BaseBuilder) buildOffset(ctx *sql.Context, n *plan.Offset, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildOffset(ctx *sql.Context, n *plan.Offset, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.Offset", trace.WithAttributes(attribute.Stringer("offset", n.Offset)))
 
 	offset, err := iters.GetInt64Value(ctx, n.Offset)
@@ -139,7 +140,7 @@ func (b *BaseBuilder) buildOffset(ctx *sql.Context, n *plan.Offset, row sql.Row)
 	return sql.NewSpanIter(span, &offsetIter{offset, it}), nil
 }
 
-func (b *BaseBuilder) buildJSONTableCols(ctx *sql.Context, jtCols []plan.JSONTableCol, row sql.Row) ([]*iters.JsonTableCol, error) {
+func (b *BaseBuilder) buildJSONTableCols(ctx *sql.Context, jtCols []plan.JSONTableCol, row sql.LazyRow) ([]*iters.JsonTableCol, error) {
 	var cols []*iters.JsonTableCol
 	for _, col := range jtCols {
 		if col.Opts == nil {
@@ -179,7 +180,7 @@ func (b *BaseBuilder) buildJSONTableCols(ctx *sql.Context, jtCols []plan.JSONTab
 	return cols, nil
 }
 
-func (b *BaseBuilder) buildJSONTable(ctx *sql.Context, n *plan.JSONTable, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildJSONTable(ctx *sql.Context, n *plan.JSONTable, row sql.LazyRow) (sql.RowIter, error) {
 	// data must evaluate to JSON string
 	data, err := n.DataExpr.Eval(ctx, row)
 	if err != nil {
@@ -214,7 +215,7 @@ func (b *BaseBuilder) buildJSONTable(ctx *sql.Context, n *plan.JSONTable, row sq
 	return rowIter, nil
 }
 
-func (b *BaseBuilder) buildHashLookup(ctx *sql.Context, n *plan.HashLookup, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildHashLookup(ctx *sql.Context, n *plan.HashLookup, row sql.LazyRow) (sql.RowIter, error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 	if n.Lookup == nil {
@@ -233,18 +234,18 @@ func (b *BaseBuilder) buildHashLookup(ctx *sql.Context, n *plan.HashLookup, row 
 		// For these joins, we need to distinguish between an empty and non-empty secondary table.
 		// Thus, if there are any rows in the lookup, we must return at least one.
 		if len((*n.Lookup)[key]) > 0 {
-			return sql.RowsToRowIter((*n.Lookup)[key]...), nil
+			return sql.LazyRowsToRowIter((*n.Lookup)[key]...), nil
 		}
 		for k := range *n.Lookup {
 			if len((*n.Lookup)[k]) > 0 {
-				return sql.RowsToRowIter((*n.Lookup)[k]...), nil
+				return sql.LazyRowsToRowIter((*n.Lookup)[k]...), nil
 			}
 		}
 	}
-	return sql.RowsToRowIter((*n.Lookup)[key]...), nil
+	return sql.LazyRowsToRowIter((*n.Lookup)[key]...), nil
 }
 
-func (b *BaseBuilder) buildTableAlias(ctx *sql.Context, n *plan.TableAlias, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildTableAlias(ctx *sql.Context, n *plan.TableAlias, row sql.LazyRow) (sql.RowIter, error) {
 	var table string
 	if tbl, ok := n.Child.(sql.Nameable); ok {
 		table = tbl.Name()
@@ -263,7 +264,7 @@ func (b *BaseBuilder) buildTableAlias(ctx *sql.Context, n *plan.TableAlias, row 
 	return sql.NewSpanIter(span, iter), nil
 }
 
-func (b *BaseBuilder) buildJoinNode(ctx *sql.Context, n *plan.JoinNode, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildJoinNode(ctx *sql.Context, n *plan.JoinNode, row sql.LazyRow) (sql.RowIter, error) {
 	switch {
 	case n.Op.IsFullOuter():
 		return newFullJoinIter(ctx, b, n, row)
@@ -284,7 +285,7 @@ func (b *BaseBuilder) buildJoinNode(ctx *sql.Context, n *plan.JoinNode, row sql.
 	}
 }
 
-func (b *BaseBuilder) buildOrderedDistinct(ctx *sql.Context, n *plan.OrderedDistinct, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildOrderedDistinct(ctx *sql.Context, n *plan.OrderedDistinct, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.OrderedDistinct")
 
 	it, err := b.buildNodeExec(ctx, n.Child, row)
@@ -296,11 +297,11 @@ func (b *BaseBuilder) buildOrderedDistinct(ctx *sql.Context, n *plan.OrderedDist
 	return sql.NewSpanIter(span, iters.NewOrderedDistinctIter(it, n.Child.Schema())), nil
 }
 
-func (b *BaseBuilder) buildWith(ctx *sql.Context, n *plan.With, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildWith(ctx *sql.Context, n *plan.With, row sql.LazyRow) (sql.RowIter, error) {
 	return nil, fmt.Errorf("*plan.With has no execution iterator")
 }
 
-func (b *BaseBuilder) buildProject(ctx *sql.Context, n *plan.Project, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildProject(ctx *sql.Context, n *plan.Project, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.Project", trace.WithAttributes(
 		attribute.Int("projections", len(n.Projections)),
 	))
@@ -318,7 +319,7 @@ func (b *BaseBuilder) buildProject(ctx *sql.Context, n *plan.Project, row sql.Ro
 	}), nil
 }
 
-func (b *BaseBuilder) buildVirtualColumnTable(ctx *sql.Context, n *plan.VirtualColumnTable, tableIter sql.RowIter, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildVirtualColumnTable(ctx *sql.Context, n *plan.VirtualColumnTable, tableIter sql.RowIter, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.VirtualColumnTable", trace.WithAttributes(
 		attribute.Int("projections", len(n.Projections)),
 	))
@@ -329,15 +330,15 @@ func (b *BaseBuilder) buildVirtualColumnTable(ctx *sql.Context, n *plan.VirtualC
 	}), nil
 }
 
-func (b *BaseBuilder) buildProcedure(ctx *sql.Context, n *plan.Procedure, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildProcedure(ctx *sql.Context, n *plan.Procedure, row sql.LazyRow) (sql.RowIter, error) {
 	return b.buildNodeExec(ctx, n.Body, row)
 }
 
-func (b *BaseBuilder) buildRecursiveTable(ctx *sql.Context, n *plan.RecursiveTable, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildRecursiveTable(ctx *sql.Context, n *plan.RecursiveTable, row sql.LazyRow) (sql.RowIter, error) {
 	return &iters.RecursiveTableIter{Buf: n.Buf}, nil
 }
 
-func (b *BaseBuilder) buildSet(ctx *sql.Context, n *plan.Set, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildSet(ctx *sql.Context, n *plan.Set, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.Set")
 	defer span.End()
 
@@ -375,20 +376,20 @@ func (b *BaseBuilder) buildSet(ctx *sql.Context, n *plan.Set, row sql.Row) (sql.
 		}
 	}
 
-	var resultRow sql.Row
+	//var resultRow sql.Row
 	if len(updateExprs) > 0 {
-		newRow, err := applyUpdateExpressions(ctx, updateExprs, row)
+		err := applyUpdateExpressions(ctx, updateExprs, row)
 		if err != nil {
 			return nil, err
 		}
-		copy(resultRow, row)
-		resultRow = row.Append(newRow)
+		//copy(resultRow, row)
+		//resultRow = row.Append(newRow)
 	}
 
-	return sql.RowsToRowIter(resultRow), nil
+	return sql.RowsToRowIter(row.SqlValues()), nil
 }
 
-func (b *BaseBuilder) buildGroupBy(ctx *sql.Context, n *plan.GroupBy, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildGroupBy(ctx *sql.Context, n *plan.GroupBy, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.GroupBy", trace.WithAttributes(
 		attribute.Int("groupings", len(n.GroupByExprs)),
 		attribute.Int("aggregates", len(n.SelectedExprs)),
@@ -410,7 +411,7 @@ func (b *BaseBuilder) buildGroupBy(ctx *sql.Context, n *plan.GroupBy, row sql.Ro
 	return sql.NewSpanIter(span, iter), nil
 }
 
-func (b *BaseBuilder) buildFilter(ctx *sql.Context, n *plan.Filter, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildFilter(ctx *sql.Context, n *plan.Filter, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.Filter")
 
 	i, err := b.buildNodeExec(ctx, n.Child, row)
@@ -422,21 +423,21 @@ func (b *BaseBuilder) buildFilter(ctx *sql.Context, n *plan.Filter, row sql.Row)
 	return sql.NewSpanIter(span, plan.NewFilterIter(n.Expression, i)), nil
 }
 
-func (b *BaseBuilder) buildDeclareVariables(ctx *sql.Context, n *plan.DeclareVariables, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDeclareVariables(ctx *sql.Context, n *plan.DeclareVariables, row sql.LazyRow) (sql.RowIter, error) {
 	return &declareVariablesIter{n, row}, nil
 }
 
-func (b *BaseBuilder) buildDeclareHandler(ctx *sql.Context, n *plan.DeclareHandler, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDeclareHandler(ctx *sql.Context, n *plan.DeclareHandler, row sql.LazyRow) (sql.RowIter, error) {
 	return &declareHandlerIter{n}, nil
 }
 
-func (b *BaseBuilder) buildRecursiveCte(ctx *sql.Context, n *plan.RecursiveCte, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildRecursiveCte(ctx *sql.Context, n *plan.RecursiveCte, row sql.LazyRow) (sql.RowIter, error) {
 	var iter sql.RowIter = &recursiveCteIter{
 		init:        n.Left(),
 		rec:         n.Right(),
 		row:         row,
 		working:     n.Working,
-		temp:        make([]sql.Row, 0),
+		temp:        make([]sql.LazyRow, 0),
 		deduplicate: n.Union().Distinct,
 		b:           b,
 	}
@@ -458,7 +459,7 @@ func (b *BaseBuilder) buildRecursiveCte(ctx *sql.Context, n *plan.RecursiveCte, 
 	return iter, nil
 }
 
-func (b *BaseBuilder) buildLimit(ctx *sql.Context, n *plan.Limit, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildLimit(ctx *sql.Context, n *plan.Limit, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.Limit", trace.WithAttributes(attribute.Stringer("limit", n.Limit)))
 
 	limit, err := iters.GetInt64Value(ctx, n.Limit)
@@ -479,7 +480,7 @@ func (b *BaseBuilder) buildLimit(ctx *sql.Context, n *plan.Limit, row sql.Row) (
 	}), nil
 }
 
-func (b *BaseBuilder) buildMax1Row(ctx *sql.Context, n *plan.Max1Row, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildMax1Row(ctx *sql.Context, n *plan.Max1Row, row sql.LazyRow) (sql.RowIter, error) {
 	n.Mu.Lock()
 	defer n.Mu.Unlock()
 
@@ -503,13 +504,13 @@ func (b *BaseBuilder) buildMax1Row(ctx *sql.Context, n *plan.Max1Row, row sql.Ro
 // PopulateResults loads and stores the state of its child iter:
 // 1) no rows returned, 2) 1 row returned, or 3) more than 1 row
 // returned
-func (b *BaseBuilder) populateMax1Results(ctx *sql.Context, n *plan.Max1Row, row sql.Row) error {
+func (b *BaseBuilder) populateMax1Results(ctx *sql.Context, n *plan.Max1Row, row sql.LazyRow) error {
 	i, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
 		return err
 	}
 	defer i.Close(ctx)
-	r1, err := i.Next(ctx)
+	err = i.Next(ctx, row)
 	if errors.Is(err, io.EOF) {
 		n.EmptyResult = true
 		return nil
@@ -517,13 +518,13 @@ func (b *BaseBuilder) populateMax1Results(ctx *sql.Context, n *plan.Max1Row, row
 		return err
 	}
 
-	_, err = i.Next(ctx)
+	err = i.Next(ctx, nil)
 	if err == nil {
 		return sql.ErrExpectedSingleRow.New()
 	} else if !errors.Is(err, io.EOF) {
 		return err
 	}
-	n.Result = r1
+	n.Result = row.SqlValues()
 	return nil
 }
 
@@ -567,7 +568,7 @@ func createIfNotExists(fileStr string) (*os.File, error) {
 	return file, nil
 }
 
-func (b *BaseBuilder) buildInto(ctx *sql.Context, n *plan.Into, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildInto(ctx *sql.Context, n *plan.Into, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.Into")
 	defer span.End()
 
@@ -575,7 +576,7 @@ func (b *BaseBuilder) buildInto(ctx *sql.Context, n *plan.Into, row sql.Row) (sq
 	if err != nil {
 		return nil, err
 	}
-	rows, err := sql.RowIterToRows(ctx, rowIter)
+	rows, err := sql.RowIterToRows(ctx, rowIter, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -603,7 +604,7 @@ func (b *BaseBuilder) buildInto(ctx *sql.Context, n *plan.Into, row sql.Row) (sq
 		sch := n.Child.Schema()
 		for _, r := range rows {
 			file.WriteString(n.LinesStartingBy)
-			for i, val := range r {
+			for i, val := range r.SqlValues() {
 				if i != 0 {
 					file.WriteString(n.FieldsTerminatedBy)
 				}
@@ -648,7 +649,7 @@ func (b *BaseBuilder) buildInto(ctx *sql.Context, n *plan.Into, row sql.Row) (sq
 		}
 		defer file.Close()
 		if rowNum == 1 {
-			for _, val := range rows[0] {
+			for _, val := range rows[0].SqlValues() {
 				file.WriteString(fmt.Sprintf("%v", val))
 			}
 		}
@@ -659,12 +660,12 @@ func (b *BaseBuilder) buildInto(ctx *sql.Context, n *plan.Into, row sql.Row) (sq
 		// a warning with error code 1329 occurs (No data), and make no change to variables
 		return sql.RowsToRowIter(sql.Row{}), nil
 	}
-	if len(rows[0]) != len(n.IntoVars) {
+	if rows[0].Count() != len(n.IntoVars) {
 		return nil, sql.ErrColumnNumberDoesNotMatch.New()
 	}
 
-	var rowValues = make([]interface{}, len(rows[0]))
-	copy(rowValues, rows[0])
+	var rowValues = make([]interface{}, rows[0].Count())
+	copy(rowValues, rows[0].SqlValues())
 
 	for j, v := range n.IntoVars {
 		switch variable := v.(type) {
@@ -687,7 +688,7 @@ func (b *BaseBuilder) buildInto(ctx *sql.Context, n *plan.Into, row sql.Row) (sq
 	return sql.RowsToRowIter(sql.Row{}), nil
 }
 
-func (b *BaseBuilder) buildExternalProcedure(ctx *sql.Context, n *plan.ExternalProcedure, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildExternalProcedure(ctx *sql.Context, n *plan.ExternalProcedure, row sql.LazyRow) (sql.RowIter, error) {
 	// The function's structure has been verified by the analyzer, so no need to double-check any of it here
 	funcVal := reflect.ValueOf(n.Function)
 	funcType := funcVal.Type()
@@ -742,7 +743,7 @@ func (b *BaseBuilder) buildExternalProcedure(ctx *sql.Context, n *plan.ExternalP
 	return sql.RowsToRowIter(), nil
 }
 
-func (b *BaseBuilder) buildHaving(ctx *sql.Context, n *plan.Having, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildHaving(ctx *sql.Context, n *plan.Having, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.Having")
 	iter, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
@@ -753,7 +754,7 @@ func (b *BaseBuilder) buildHaving(ctx *sql.Context, n *plan.Having, row sql.Row)
 	return sql.NewSpanIter(span, plan.NewFilterIter(n.Cond, iter)), nil
 }
 
-func (b *BaseBuilder) buildDistinct(ctx *sql.Context, n *plan.Distinct, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDistinct(ctx *sql.Context, n *plan.Distinct, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.Distinct")
 
 	it, err := b.buildNodeExec(ctx, n.Child, row)
@@ -765,7 +766,7 @@ func (b *BaseBuilder) buildDistinct(ctx *sql.Context, n *plan.Distinct, row sql.
 	return sql.NewSpanIter(span, iters.NewDistinctIter(ctx, it)), nil
 }
 
-func (b *BaseBuilder) buildIndexedTableAccess(ctx *sql.Context, n *plan.IndexedTableAccess, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildIndexedTableAccess(ctx *sql.Context, n *plan.IndexedTableAccess, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.IndexedTableAccess")
 
 	lookup, err := n.GetLookup(ctx, row)
@@ -791,7 +792,7 @@ func (b *BaseBuilder) buildIndexedTableAccess(ctx *sql.Context, n *plan.IndexedT
 	return sql.NewSpanIter(span, tableIter), nil
 }
 
-func (b *BaseBuilder) buildSetOp(ctx *sql.Context, s *plan.SetOp, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildSetOp(ctx *sql.Context, s *plan.SetOp, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.SetOp")
 	var iter sql.RowIter
 	var err error
@@ -873,7 +874,7 @@ func (b *BaseBuilder) buildSetOp(ctx *sql.Context, s *plan.SetOp, row sql.Row) (
 	return sql.NewSpanIter(span, iter), nil
 }
 
-func (b *BaseBuilder) buildSubqueryAlias(ctx *sql.Context, n *plan.SubqueryAlias, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildSubqueryAlias(ctx *sql.Context, n *plan.SubqueryAlias, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.SubqueryAlias")
 
 	if !n.OuterScopeVisibility && !n.IsLateral {
@@ -888,7 +889,7 @@ func (b *BaseBuilder) buildSubqueryAlias(ctx *sql.Context, n *plan.SubqueryAlias
 	return sql.NewSpanIter(span, iter), nil
 }
 
-func (b *BaseBuilder) buildSort(ctx *sql.Context, n *plan.Sort, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildSort(ctx *sql.Context, n *plan.Sort, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.Sort")
 	i, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
@@ -898,11 +899,11 @@ func (b *BaseBuilder) buildSort(ctx *sql.Context, n *plan.Sort, row sql.Row) (sq
 	return sql.NewSpanIter(span, iters.NewSortIter(n.SortFields, i)), nil
 }
 
-func (b *BaseBuilder) buildPrepareQuery(ctx *sql.Context, n *plan.PrepareQuery, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildPrepareQuery(ctx *sql.Context, n *plan.PrepareQuery, row sql.LazyRow) (sql.RowIter, error) {
 	return sql.RowsToRowIter(sql.NewRow(types.OkResult{RowsAffected: 0, Info: plan.PrepareInfo{}})), nil
 }
 
-func (b *BaseBuilder) buildResolvedTable(ctx *sql.Context, n *plan.ResolvedTable, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildResolvedTable(ctx *sql.Context, n *plan.ResolvedTable, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.TableNode")
 
 	partitions, err := n.Table.Partitions(ctx)
@@ -924,6 +925,6 @@ func (b *BaseBuilder) buildResolvedTable(ctx *sql.Context, n *plan.ResolvedTable
 	return sql.NewSpanIter(span, iter), nil
 }
 
-func (b *BaseBuilder) buildTableCount(_ *sql.Context, n *plan.TableCountLookup, _ sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildTableCount(_ *sql.Context, n *plan.TableCountLookup, _ sql.LazyRow) (sql.RowIter, error) {
 	return sql.RowsToRowIter(sql.Row{int64(n.Count())}), nil
 }

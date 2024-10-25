@@ -85,7 +85,7 @@ func (g *GroupConcat) Window() *sql.WindowDefinition {
 
 // NewBuffer creates a new buffer for the aggregation.
 func (g *GroupConcat) NewBuffer() (sql.AggregationBuffer, error) {
-	var rows []sql.Row
+	var rows []sql.LazyRow
 	distinctSet := make(map[string]bool)
 	return &groupConcatBuffer{g, rows, distinctSet}, nil
 }
@@ -96,7 +96,7 @@ func (g *GroupConcat) NewWindowFunction() (sql.WindowFunction, error) {
 }
 
 // Eval implements the Expression interface.
-func (g *GroupConcat) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (g *GroupConcat) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return nil, ErrEvalUnsupportedOnAggregation.New("GroupConcat")
 }
 
@@ -197,13 +197,13 @@ func (g *GroupConcat) WithChildren(children ...sql.Expression) (sql.Expression, 
 
 type groupConcatBuffer struct {
 	gc          *GroupConcat
-	rows        []sql.Row
+	rows        []sql.LazyRow
 	distinctSet map[string]bool
 }
 
 // Update implements the AggregationBuffer interface.
-func (g *groupConcatBuffer) Update(ctx *sql.Context, originalRow sql.Row) error {
-	evalRow, retType, err := evalExprs(ctx, g.gc.selectExprs, originalRow)
+func (g *groupConcatBuffer) Update(ctx *sql.Context, row sql.LazyRow) error {
+	evalRow, retType, err := evalExprs(ctx, g.gc.selectExprs, row)
 	if err != nil {
 		return err
 	}
@@ -250,7 +250,8 @@ func (g *groupConcatBuffer) Update(ctx *sql.Context, originalRow sql.Row) error 
 
 	// Append the current value to the end of the row. We want to preserve the row's original structure for
 	// for sort ordering in the final step.
-	g.rows = append(g.rows, append(originalRow, nil, vs))
+	row.CopyRange(0, nil, vs)
+	g.rows = append(g.rows, row)
 
 	return nil
 }
@@ -280,12 +281,12 @@ func (g *groupConcatBuffer) Eval(ctx *sql.Context) (interface{}, error) {
 
 	sb := strings.Builder{}
 	for i, row := range rows {
-		lastIdx := len(row) - 1
+		lastIdx := row.Count() - 1
 		if i == 0 {
-			sb.WriteString(row[lastIdx].(string))
+			sb.WriteString(row.SqlValue(lastIdx).(string))
 		} else {
 			sb.WriteString(g.gc.separator)
-			sb.WriteString(row[lastIdx].(string))
+			sb.WriteString(row.SqlValue(lastIdx).(string))
 		}
 
 		// Don't allow the string to cross maxlen
@@ -309,7 +310,7 @@ func (g *groupConcatBuffer) Eval(ctx *sql.Context) (interface{}, error) {
 func (g *groupConcatBuffer) Dispose() {
 }
 
-func evalExprs(ctx *sql.Context, exprs []sql.Expression, row sql.Row) (sql.Row, sql.Type, error) {
+func evalExprs(ctx *sql.Context, exprs []sql.Expression, row sql.LazyRow) (sql.Row, sql.Type, error) {
 	result := make(sql.Row, len(exprs))
 	retType := types.Blob
 	for i, expr := range exprs {

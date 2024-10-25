@@ -70,7 +70,7 @@ func TestExchange(t *testing.T) {
 			iter, err := DefaultBuilder.Build(ctx, exchange, nil)
 			require.NoError(err)
 
-			rows, err := sql.RowIterToRows(ctx, iter)
+			rows, err := sql.RowIterToRows(ctx, iter, 0)
 			require.NoError(err)
 			require.ElementsMatch(expected, rows)
 		})
@@ -106,7 +106,7 @@ func TestExchangeCancelled(t *testing.T) {
 	iter, err := DefaultBuilder.Build(ctx, exchange, nil)
 	require.NoError(err)
 
-	_, err = iter.Next(ctx)
+	err = iter.Next(ctx, nil)
 	require.Equal(context.Canceled, err)
 }
 
@@ -226,13 +226,13 @@ type partitionRows struct {
 	num int32
 }
 
-func (r *partitionRows) Next(*sql.Context) (sql.Row, error) {
+func (r *partitionRows) Next(*sql.Context, sql.LazyRow) error {
 	new := atomic.AddInt32(&r.num, -1)
 	if new < 0 {
-		return nil, io.EOF
+		return io.EOF
 	}
 
-	return sql.NewRow(string(r.Key()), int64(new+1)), nil
+	return nil
 }
 
 func (r *partitionRows) Close(*sql.Context) error {
@@ -243,7 +243,7 @@ func (r *partitionRows) Close(*sql.Context) error {
 type rowIterPanic struct {
 }
 
-func (*rowIterPanic) Next(*sql.Context) (sql.Row, error) {
+func (*rowIterPanic) Next(*sql.Context, sql.LazyRow) error {
 	panic("i panic")
 }
 

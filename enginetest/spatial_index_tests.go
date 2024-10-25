@@ -423,7 +423,7 @@ func evalSpatialIndexPlanCorrectness(t *testing.T, harness Harness, e QueryEngin
 		sch, iter, _, err := e.QueryWithBindings(ctx, q, nil, nil, nil)
 		require.NoError(t, err, "Unexpected error for q %s: %s", q, err)
 
-		rows, err := sql.RowIterToRows(ctx, iter)
+		rows, err := sql.RowIterToRows(ctx, iter, 0)
 		require.NoError(t, err, "Unexpected error for q %s: %s", q, err)
 
 		if exp != nil {

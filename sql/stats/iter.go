@@ -49,10 +49,10 @@ type statsIter struct {
 
 var _ sql.RowIter = (*statsIter)(nil)
 
-func (s *statsIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (s *statsIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	for {
 		if s.i >= len(s.dStats) {
-			return nil, io.EOF
+			return io.EOF
 		}
 		if s.j == 0 {
 			s.updateIndexMeta()
@@ -67,7 +67,12 @@ func (s *statsIter) Next(ctx *sql.Context) (sql.Row, error) {
 
 		currentJ := s.j
 		s.j++
-		return s.bucketToRow(currentJ, dStat.Histogram()[currentJ])
+		r, err := s.bucketToRow(currentJ, dStat.Histogram()[currentJ])
+		if err != nil {
+			return err
+		}
+		row.CopyRange(0, r...)
+		return nil
 	}
 }
 

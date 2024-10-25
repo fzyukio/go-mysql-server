@@ -187,9 +187,9 @@ func (u *updatableJoinUpdater) StatementComplete(ctx *sql.Context) error {
 }
 
 // Update implements the sql.RowUpdater interface.
-func (u *updatableJoinUpdater) Update(ctx *sql.Context, old sql.Row, new sql.Row) error {
-	tableToOldRowMap := SplitRowIntoTableRowMap(old, u.joinSchema)
-	tableToNewRowMap := SplitRowIntoTableRowMap(new, u.joinSchema)
+func (u *updatableJoinUpdater) Update(ctx *sql.Context, old sql.LazyRow, new sql.LazyRow) error {
+	tableToOldRowMap := SplitRowIntoTableRowMap(old.SqlValues(), u.joinSchema)
+	tableToNewRowMap := SplitRowIntoTableRowMap(new.SqlValues(), u.joinSchema)
 
 	for tableName, updater := range u.updaterMap {
 		oldRow := tableToOldRowMap[tableName]
@@ -214,8 +214,8 @@ func (u *updatableJoinUpdater) Update(ctx *sql.Context, old sql.Row, new sql.Row
 }
 
 // SplitRowIntoTableRowMap takes a join table row and breaks into a map of tables and their respective row.
-func SplitRowIntoTableRowMap(row sql.Row, joinSchema sql.Schema) map[string]sql.Row {
-	ret := make(map[string]sql.Row)
+func SplitRowIntoTableRowMap(row sql.Row, joinSchema sql.Schema) map[string]sql.LazyRow {
+	ret := make(map[string]sql.LazyRow)
 
 	if len(joinSchema) == 0 {
 		return ret
@@ -228,7 +228,7 @@ func SplitRowIntoTableRowMap(row sql.Row, joinSchema sql.Schema) map[string]sql.
 		c := joinSchema[i]
 
 		if c.Source != currentTable {
-			ret[currentTable] = currentRow
+			ret[currentTable] = sql.NewSqlRowFromRow(currentRow)
 			currentTable = c.Source
 			currentRow = sql.Row{row[i]}
 		} else {
@@ -237,7 +237,7 @@ func SplitRowIntoTableRowMap(row sql.Row, joinSchema sql.Schema) map[string]sql.
 		}
 	}
 
-	ret[currentTable] = currentRow
+	ret[currentTable] = sql.NewSqlRowFromRow(currentRow)
 
 	return ret
 }

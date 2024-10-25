@@ -32,7 +32,7 @@ func TestJoinStats(t *testing.T, harness Harness) {
 			for _, q := range tt.setup {
 				_, iter, _, err := e.Query(ctx, q)
 				require.NoError(t, err)
-				_, err = sql.RowIterToRows(ctx, iter)
+				_, err = sql.RowIterToRows(ctx, iter, 0)
 				require.NoError(t, err)
 			}
 

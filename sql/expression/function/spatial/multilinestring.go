@@ -74,7 +74,7 @@ func (p *MultiLineString) WithChildren(children ...sql.Expression) (sql.Expressi
 }
 
 // Eval implements the sql.Expression interface.
-func (p *MultiLineString) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (p *MultiLineString) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	var lines = make([]types.LineString, len(p.ChildExpressions))
 	for i, arg := range p.ChildExpressions {
 		val, err := arg.Eval(ctx, row)

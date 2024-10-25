@@ -90,7 +90,7 @@ func (gs *GtidSubtract) Children() []sql.Expression {
 }
 
 // Eval implements the Expression interface.
-func (gs *GtidSubtract) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (gs *GtidSubtract) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	if gs.gtid1 == nil || gs.gtid2 == nil {
 		return nil, nil
 	}

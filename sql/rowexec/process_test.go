@@ -110,7 +110,7 @@ func TestProcessTable(t *testing.T) {
 	iter, err := DefaultBuilder.Build(ctx, node, nil)
 	require.NoError(err)
 
-	rows, err := sql.RowIterToRows(ctx, iter)
+	rows, err := sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 
 	expected := []sql.Row{

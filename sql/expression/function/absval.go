@@ -47,7 +47,7 @@ func (t *AbsVal) Description() string {
 }
 
 // Eval implements the Expression interface.
-func (t *AbsVal) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (t *AbsVal) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := t.Child.Eval(ctx, row)
 
 	if err != nil {

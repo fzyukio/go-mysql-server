@@ -231,7 +231,7 @@ func RoundFloatSlices(v interface{}, p float64) interface{} {
 
 // getIntArg is a helper method that evaluates the given sql.Expression to an int type, errors on float32 and float64,
 // and returns nil
-func getIntArg(ctx *sql.Context, row sql.Row, expr sql.Expression) (interface{}, error) {
+func getIntArg(ctx *sql.Context, row sql.LazyRow, expr sql.Expression) (interface{}, error) {
 	x, err := expr.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -251,7 +251,7 @@ func getIntArg(ctx *sql.Context, row sql.Row, expr sql.Expression) (interface{},
 }
 
 // Eval implements the sql.Expression interface.
-func (g *AsGeoJSON) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (g *AsGeoJSON) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	// convert spatial type to map, then place inside sql.JSONDocument
 	val, err := g.ChildExpressions[0].Eval(ctx, row)
 	if err != nil {
@@ -659,7 +659,7 @@ func ParseGeoJsonData(obj map[string]interface{}) (interface{}, string, error) {
 }
 
 // Eval implements the sql.Expression interface.
-func (g *GeomFromGeoJSON) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (g *GeomFromGeoJSON) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := g.ChildExpressions[0].Eval(ctx, row)
 	if err != nil {
 		return nil, err

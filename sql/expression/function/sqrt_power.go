@@ -74,7 +74,7 @@ func (s *Sqrt) WithChildren(children ...sql.Expression) (sql.Expression, error) 
 }
 
 // Eval implements the Expression interface.
-func (s *Sqrt) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (s *Sqrt) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	child, err := s.Child.Eval(ctx, row)
 
 	if err != nil {
@@ -150,7 +150,7 @@ func (p *Power) WithChildren(children ...sql.Expression) (sql.Expression, error)
 }
 
 // Eval implements the Expression interface.
-func (p *Power) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (p *Power) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	left, err := p.LeftChild.Eval(ctx, row)
 	if err != nil {
 		return nil, err

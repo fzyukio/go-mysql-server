@@ -25,7 +25,7 @@ import (
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
-func (b *BaseBuilder) buildStripRowNode(ctx *sql.Context, n *plan.StripRowNode, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildStripRowNode(ctx *sql.Context, n *plan.StripRowNode, row sql.LazyRow) (sql.RowIter, error) {
 	childIter, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func (b *BaseBuilder) buildStripRowNode(ctx *sql.Context, n *plan.StripRowNode, 
 	}, nil
 }
 
-func (b *BaseBuilder) buildConcat(ctx *sql.Context, n *plan.Concat, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildConcat(ctx *sql.Context, n *plan.Concat, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.Concat")
 	li, err := b.buildNodeExec(ctx, n.Left(), row)
 	if err != nil {
@@ -54,7 +54,7 @@ func (b *BaseBuilder) buildConcat(ctx *sql.Context, n *plan.Concat, row sql.Row)
 	return sql.NewSpanIter(span, i), nil
 }
 
-func (b *BaseBuilder) buildReleaser(ctx *sql.Context, n *plan.Releaser, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildReleaser(ctx *sql.Context, n *plan.Releaser, row sql.LazyRow) (sql.RowIter, error) {
 	iter, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
 		n.Release()
@@ -64,18 +64,18 @@ func (b *BaseBuilder) buildReleaser(ctx *sql.Context, n *plan.Releaser, row sql.
 	return &releaseIter{child: iter, release: n.Release}, nil
 }
 
-func (b *BaseBuilder) buildDeallocateQuery(ctx *sql.Context, n *plan.DeallocateQuery, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDeallocateQuery(ctx *sql.Context, n *plan.DeallocateQuery, row sql.LazyRow) (sql.RowIter, error) {
 	return rowIterWithOkResultWithZeroRowsAffected(), nil
 }
 
-func (b *BaseBuilder) buildFetch(ctx *sql.Context, n *plan.Fetch, row sql.Row) (sql.RowIter, error) {
-	row, sch, err := n.Pref.FetchCursor(ctx, n.Name)
+func (b *BaseBuilder) buildFetch(ctx *sql.Context, n *plan.Fetch, row sql.LazyRow) (sql.RowIter, error) {
+	sch, err := n.Pref.FetchCursor(ctx, n.Name, row)
 	if err == io.EOF {
 		return sql.RowsToRowIter(), expression.FetchEOF
 	} else if err != nil {
 		return nil, err
 	}
-	if len(row) != len(n.ToSet) {
+	if row.Count() != len(n.ToSet) {
 		return nil, sql.ErrFetchIncorrectCount.New()
 	}
 	if len(n.ToSet) == 0 {
@@ -94,23 +94,23 @@ func (b *BaseBuilder) buildFetch(ctx *sql.Context, n *plan.Fetch, row sql.Row) (
 	return b.buildSet(ctx, set, row)
 }
 
-func (b *BaseBuilder) buildSignalName(ctx *sql.Context, n *plan.SignalName, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildSignalName(ctx *sql.Context, n *plan.SignalName, row sql.LazyRow) (sql.RowIter, error) {
 	return nil, fmt.Errorf("%T has no exchange iterator", n)
 }
 
-func (b *BaseBuilder) buildRepeat(ctx *sql.Context, n *plan.Repeat, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildRepeat(ctx *sql.Context, n *plan.Repeat, row sql.LazyRow) (sql.RowIter, error) {
 	return b.buildLoop(ctx, n.Loop, row)
 }
 
-func (b *BaseBuilder) buildDeferredFilteredTable(ctx *sql.Context, n *plan.DeferredFilteredTable, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDeferredFilteredTable(ctx *sql.Context, n *plan.DeferredFilteredTable, row sql.LazyRow) (sql.RowIter, error) {
 	return nil, fmt.Errorf("%T has no execution iterator", n)
 }
 
-func (b *BaseBuilder) buildNamedWindows(ctx *sql.Context, n *plan.NamedWindows, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildNamedWindows(ctx *sql.Context, n *plan.NamedWindows, row sql.LazyRow) (sql.RowIter, error) {
 	return nil, fmt.Errorf("%T has no execution iterator", n)
 }
 
-func (b *BaseBuilder) buildExchange(ctx *sql.Context, n *plan.Exchange, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildExchange(ctx *sql.Context, n *plan.Exchange, row sql.LazyRow) (sql.RowIter, error) {
 	var t sql.Table
 	transform.Inspect(n.Child, func(n sql.Node) bool {
 		if table, ok := n.(sql.Table); ok {
@@ -137,7 +137,7 @@ func (b *BaseBuilder) buildExchange(ctx *sql.Context, n *plan.Exchange, row sql.
 	// goroutines are completed.
 
 	partitionsCh := make(chan sql.Partition)
-	rowsCh := make(chan sql.Row, n.Parallelism*16)
+	rowsCh := make(chan sql.LazyRow, n.Parallelism*16)
 
 	eg, egCtx := ctx.NewErrgroup()
 	eg.Go(func() error {
@@ -173,23 +173,23 @@ func (b *BaseBuilder) buildExchange(ctx *sql.Context, n *plan.Exchange, row sql.
 	return &exchangeRowIter{shutdownHook: shutdownHook, waiter: waiter, rows: rowsCh}, nil
 }
 
-func (b *BaseBuilder) buildExchangePartition(ctx *sql.Context, n *plan.ExchangePartition, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildExchangePartition(ctx *sql.Context, n *plan.ExchangePartition, row sql.LazyRow) (sql.RowIter, error) {
 	return n.Table.PartitionRows(ctx, n.Partition)
 }
 
-func (b *BaseBuilder) buildEmptyTable(ctx *sql.Context, n *plan.EmptyTable, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildEmptyTable(ctx *sql.Context, n *plan.EmptyTable, row sql.LazyRow) (sql.RowIter, error) {
 	return sql.RowsToRowIter(), nil
 }
 
-func (b *BaseBuilder) buildDeclareCursor(ctx *sql.Context, n *plan.DeclareCursor, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDeclareCursor(ctx *sql.Context, n *plan.DeclareCursor, row sql.LazyRow) (sql.RowIter, error) {
 	return &declareCursorIter{n}, nil
 }
 
-func (b *BaseBuilder) buildTransformedNamedNode(ctx *sql.Context, n *plan.TransformedNamedNode, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildTransformedNamedNode(ctx *sql.Context, n *plan.TransformedNamedNode, row sql.LazyRow) (sql.RowIter, error) {
 	return b.buildNodeExec(ctx, n.Child, row)
 }
 
-func (b *BaseBuilder) buildCachedResults(ctx *sql.Context, n *plan.CachedResults, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildCachedResults(ctx *sql.Context, n *plan.CachedResults, row sql.LazyRow) (sql.RowIter, error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
@@ -198,7 +198,7 @@ func (b *BaseBuilder) buildCachedResults(ctx *sql.Context, n *plan.CachedResults
 	}
 
 	if rows := n.GetCachedResults(); rows != nil {
-		return sql.RowsToRowIter(rows...), nil
+		return sql.LazyRowsToRowIter(rows...), nil
 	} else if n.NoCache {
 		return b.buildNodeExec(ctx, n.Child, row)
 	} else if n.Finalized {
@@ -213,8 +213,8 @@ func (b *BaseBuilder) buildCachedResults(ctx *sql.Context, n *plan.CachedResults
 	return &cachedResultsIter{n, ci, cache, dispose}, nil
 }
 
-func (b *BaseBuilder) buildBlock(ctx *sql.Context, n *plan.Block, row sql.Row) (sql.RowIter, error) {
-	var returnRows []sql.Row
+func (b *BaseBuilder) buildBlock(ctx *sql.Context, n *plan.Block, row sql.LazyRow) (sql.RowIter, error) {
+	var returnRows []sql.LazyRow
 	var returnNode sql.Node
 	var returnSch sql.Schema
 
@@ -242,7 +242,7 @@ func (b *BaseBuilder) buildBlock(ctx *sql.Context, n *plan.Block, row sql.Row) (
 				defer handlerRowIter.Close(ctx)
 
 				for {
-					_, err := handlerRowIter.Next(ctx)
+					err := handlerRowIter.Next(ctx, nil)
 					if err == io.EOF {
 						break
 					} else if err != nil {
@@ -291,7 +291,8 @@ func (b *BaseBuilder) buildBlock(ctx *sql.Context, n *plan.Block, row sql.Row) (
 			}
 
 			for {
-				newRow, err := subIter.Next(ctx)
+				newRow := sql.NewSqlRow(len(returnNode.Schema()))
+				err := subIter.Next(ctx, newRow)
 				if err == io.EOF {
 					err := subIter.Close(ctx)
 					if err != nil {
@@ -324,21 +325,21 @@ func (b *BaseBuilder) buildBlock(ctx *sql.Context, n *plan.Block, row sql.Row) (
 
 	n.SetSchema(returnSch)
 	return &blockIter{
-		internalIter: sql.RowsToRowIter(returnRows...),
+		internalIter: sql.LazyRowsToRowIter(returnRows...),
 		repNode:      returnNode,
 		sch:          returnSch,
 	}, nil
 }
 
-func (b *BaseBuilder) buildDeferredAsOfTable(ctx *sql.Context, n *plan.DeferredAsOfTable, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDeferredAsOfTable(ctx *sql.Context, n *plan.DeferredAsOfTable, row sql.LazyRow) (sql.RowIter, error) {
 	return nil, fmt.Errorf("%T has no execution iterator", n)
 }
 
-func (b *BaseBuilder) buildNothing(ctx *sql.Context, n plan.Nothing, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildNothing(ctx *sql.Context, n plan.Nothing, row sql.LazyRow) (sql.RowIter, error) {
 	return sql.RowsToRowIter(), nil
 }
 
-func (b *BaseBuilder) buildTableCopier(ctx *sql.Context, n *plan.TableCopier, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildTableCopier(ctx *sql.Context, n *plan.TableCopier, row sql.LazyRow) (sql.RowIter, error) {
 	if _, ok := n.Destination.(*plan.CreateTable); ok {
 		return n.ProcessCreateTable(ctx, b, row)
 	}
@@ -351,11 +352,11 @@ func (b *BaseBuilder) buildTableCopier(ctx *sql.Context, n *plan.TableCopier, ro
 	return n.CopyTableOver(ctx, n.Source.Schema()[0].Source, drt.Name())
 }
 
-func (b *BaseBuilder) buildUnresolvedTable(ctx *sql.Context, n *plan.UnresolvedTable, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildUnresolvedTable(ctx *sql.Context, n *plan.UnresolvedTable, row sql.LazyRow) (sql.RowIter, error) {
 	return nil, plan.ErrUnresolvedTable.New()
 }
 
-func (b *BaseBuilder) buildPrependNode(ctx *sql.Context, n *plan.PrependNode, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildPrependNode(ctx *sql.Context, n *plan.PrependNode, row sql.LazyRow) (sql.RowIter, error) {
 	childIter, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
 		return nil, err
@@ -367,7 +368,7 @@ func (b *BaseBuilder) buildPrependNode(ctx *sql.Context, n *plan.PrependNode, ro
 	}, nil
 }
 
-func (b *BaseBuilder) buildQueryProcess(ctx *sql.Context, n *plan.QueryProcess, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildQueryProcess(ctx *sql.Context, n *plan.QueryProcess, row sql.LazyRow) (sql.RowIter, error) {
 	iter, err := b.Build(ctx, n.Child(), row)
 	if err != nil {
 		return nil, err
@@ -382,7 +383,7 @@ func (b *BaseBuilder) buildQueryProcess(ctx *sql.Context, n *plan.QueryProcess, 
 	return trackedIter, nil
 }
 
-func (b *BaseBuilder) buildAnalyzeTable(ctx *sql.Context, n *plan.AnalyzeTable, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildAnalyzeTable(ctx *sql.Context, n *plan.AnalyzeTable, row sql.LazyRow) (sql.RowIter, error) {
 	// Assume table is in current database
 	database := ctx.GetCurrentDatabase()
 	if database == "" {
@@ -397,7 +398,7 @@ func (b *BaseBuilder) buildAnalyzeTable(ctx *sql.Context, n *plan.AnalyzeTable, 
 	}, nil
 }
 
-func (b *BaseBuilder) buildDropHistogram(ctx *sql.Context, n *plan.DropHistogram, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDropHistogram(ctx *sql.Context, n *plan.DropHistogram, row sql.LazyRow) (sql.RowIter, error) {
 	// Assume table is in current database
 	database := ctx.GetCurrentDatabase()
 	if database == "" {
@@ -412,7 +413,7 @@ func (b *BaseBuilder) buildDropHistogram(ctx *sql.Context, n *plan.DropHistogram
 	}, nil
 }
 
-func (b *BaseBuilder) buildUpdateHistogram(ctx *sql.Context, n *plan.UpdateHistogram, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildUpdateHistogram(ctx *sql.Context, n *plan.UpdateHistogram, row sql.LazyRow) (sql.RowIter, error) {
 	// Assume table is in current database
 	database := ctx.GetCurrentDatabase()
 	if database == "" {
@@ -428,7 +429,7 @@ func (b *BaseBuilder) buildUpdateHistogram(ctx *sql.Context, n *plan.UpdateHisto
 	}, nil
 }
 
-func (b *BaseBuilder) buildCreateSpatialRefSys(ctx *sql.Context, n *plan.CreateSpatialRefSys, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildCreateSpatialRefSys(ctx *sql.Context, n *plan.CreateSpatialRefSys, row sql.LazyRow) (sql.RowIter, error) {
 	if _, ok := types.SupportedSRIDs[n.SRID]; ok {
 		if n.IfNotExists {
 			return rowIterWithOkResultWithZeroRowsAffected(), nil

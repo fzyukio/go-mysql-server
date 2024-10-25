@@ -99,7 +99,7 @@ func TestLimitGreaterThanTotal(t *testing.T) {
 func testLimitOverflow(t *testing.T, ctx *sql.Context, iter sql.RowIter, limit int, dataSize int) {
 	require := require.New(t)
 	for i := 0; i < limit+1; i++ {
-		row, err := iter.Next(ctx)
+		err := iter.Next(ctx, nil)
 		hint := fmt.Sprintf("Iter#%d : size.%d : limit.%d", i, dataSize, limit)
 		if i >= limit || i >= dataSize {
 			require.Nil(row, hint)

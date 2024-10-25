@@ -47,10 +47,10 @@ func NewInSubquery(left sql.Expression, right sql.Expression) *InSubquery {
 	return &InSubquery{expression.BinaryExpressionStub{LeftChild: left, RightChild: right}}
 }
 
-var nilKey, _ = sql.HashOf(sql.NewRow(nil))
+var nilKey, _ = sql.HashOf(sql.NewSqlRowFromRow(sql.NewRow(nil)))
 
 // Eval implements the Expression interface.
-func (in *InSubquery) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (in *InSubquery) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	typ := in.LeftChild.Type().Promote()
 	left, err := in.LeftChild.Eval(ctx, row)
 	if err != nil {
@@ -96,7 +96,7 @@ func (in *InSubquery) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 			return false, nil
 		}
 
-		key, err := sql.HashOf(sql.NewRow(nLeft))
+		key, err := sql.HashOf(sql.NewSqlRowFromRow(sql.NewRow(nLeft)))
 		if err != nil {
 			return nil, err
 		}

@@ -265,7 +265,7 @@ func (*Signal) CollationCoercibility(ctx *sql.Context) (collation sql.CollationI
 }
 
 // RowIter implements the sql.Node interface.
-func (s *Signal) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (s *Signal) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	//TODO: implement CLASS_ORIGIN
 	//TODO: implement SUBCLASS_ORIGIN
 	//TODO: implement CONSTRAINT_CATALOG
@@ -355,7 +355,7 @@ func (*SignalName) CollationCoercibility(ctx *sql.Context) (collation sql.Collat
 }
 
 // RowIter implements the sql.Node interface.
-func (s *SignalName) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (s *SignalName) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	return nil, fmt.Errorf("may not iterate over unresolved node *SignalName")
 }
 

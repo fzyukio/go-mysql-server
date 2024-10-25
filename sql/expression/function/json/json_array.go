@@ -98,7 +98,7 @@ func (j *JSONArray) IsNullable() bool {
 }
 
 // Eval implements the Expression interface.
-func (j *JSONArray) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (j *JSONArray) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	if len(j.vals) == 0 {
 		return types.JSONDocument{Val: make([]interface{}, 0)}, nil
 	}

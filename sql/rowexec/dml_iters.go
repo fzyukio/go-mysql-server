@@ -33,12 +33,12 @@ type triggerRollbackIter struct {
 	savePointName string
 }
 
-func (t *triggerRollbackIter) Next(ctx *sql.Context) (row sql.Row, returnErr error) {
-	childRow, err := t.child.Next(ctx)
+func (t *triggerRollbackIter) Next(ctx *sql.Context, row sql.LazyRow) (returnErr error) {
+	err := t.child.Next(ctx, nil)
 
 	ts, ok := ctx.Session.(sql.TransactionSession)
 	if !ok {
-		return nil, fmt.Errorf("expected a sql.TransactionSession, but got %T", ctx.Session)
+		return fmt.Errorf("expected a sql.TransactionSession, but got %T", ctx.Session)
 	}
 
 	// Rollback if error occurred
@@ -53,7 +53,7 @@ func (t *triggerRollbackIter) Next(ctx *sql.Context) (row sql.Row, returnErr err
 		}
 	}
 
-	return childRow, err
+	return err
 }
 
 func (t *triggerRollbackIter) Close(ctx *sql.Context) error {
@@ -74,7 +74,7 @@ func (t *triggerRollbackIter) Close(ctx *sql.Context) error {
 // triggerBlockIter is the sql.RowIter for TRIGGER BEGIN/END blocks, which operate differently than normal blocks.
 type triggerBlockIter struct {
 	statements []sql.Node
-	row        sql.Row
+	row        sql.LazyRow
 	once       *sync.Once
 	b          *BaseBuilder
 }
@@ -82,46 +82,48 @@ type triggerBlockIter struct {
 var _ sql.RowIter = (*triggerBlockIter)(nil)
 
 // Next implements the sql.RowIter interface.
-func (i *triggerBlockIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *triggerBlockIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	run := false
 	i.once.Do(func() {
 		run = true
 	})
 
 	if !run {
-		return nil, io.EOF
+		return io.EOF
 	}
 
-	row := i.row
 	for _, s := range i.statements {
 		subIter, err := i.b.buildNodeExec(ctx, s, row)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		for {
-			newRow, err := subIter.Next(ctx)
+			newRow := sql.NewSqlRow(row.Count() * 2)
+			err := subIter.Next(ctx, newRow)
 			if err == io.EOF {
 				err := subIter.Close(ctx)
 				if err != nil {
-					return nil, err
+					return err
 				}
 				break
 			} else if err != nil {
 				_ = subIter.Close(ctx)
-				return nil, err
+				return err
 			}
 
 			// We only return the result of a trigger block statement in certain cases, specifically when we are setting the
 			// value of new.field, so that the wrapping iterator can use it for the insert / update. Otherwise, this iterator
 			// always returns its input row.
 			if shouldUseTriggerStatementForReturnRow(s) {
-				row = newRow[len(newRow)/2:]
+				for i := newRow.Count() / 2; i < newRow.Count(); i++ {
+					row.SetSqlValue(i, newRow.SqlValue(i))
+				}
 			}
 		}
 	}
 
-	return row, nil
+	return nil
 }
 
 // shouldUseTriggerStatementForReturnRow returns whether the statement has Set node that contains GetField expression,
@@ -193,16 +195,16 @@ func prependRowForTriggerExecutionSelector(ctx transform.Context) bool {
 	}
 }
 
-func (t *triggerIter) Next(ctx *sql.Context) (row sql.Row, returnErr error) {
-	childRow, err := t.child.Next(ctx)
+func (t *triggerIter) Next(ctx *sql.Context, row sql.LazyRow) (returnErr error) {
+	err := t.child.Next(ctx, row)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Wrap the execution logic with the current child row before executing it.
-	logic, _, err := transform.NodeWithCtx(t.executionLogic, prependRowForTriggerExecutionSelector, prependRowInPlanForTriggerExecution(childRow))
+	logic, _, err := transform.NodeWithCtx(t.executionLogic, prependRowForTriggerExecutionSelector, prependRowInPlanForTriggerExecution(row.SqlValues()))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// We don't do anything interesting with this subcontext yet, but it's a good idea to cancel it independently of the
@@ -210,9 +212,9 @@ func (t *triggerIter) Next(ctx *sql.Context) (row sql.Row, returnErr error) {
 	ctx, cancelFunc := t.ctx.NewSubContext()
 	defer cancelFunc()
 
-	logicIter, err := t.b.buildNodeExec(ctx, logic, childRow)
+	logicIter, err := t.b.buildNodeExec(ctx, logic, row)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer func() {
@@ -222,14 +224,15 @@ func (t *triggerIter) Next(ctx *sql.Context) (row sql.Row, returnErr error) {
 		}
 	}()
 
-	var logicRow sql.Row
+	var logicRow sql.LazyRow
 	for {
-		row, err := logicIter.Next(ctx)
+		row := sql.NewSqlRow(len(t.executionLogic.Schema()))
+		err := logicIter.Next(ctx, row)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 		logicRow = row
 	}
@@ -237,13 +240,14 @@ func (t *triggerIter) Next(ctx *sql.Context) (row sql.Row, returnErr error) {
 	// For some logic statements, we want to return the result of the logic operation as our row, e.g. a Set that alters
 	// the fields of the new row
 	if ok, returnRow := shouldUseLogicResult(logic, logicRow); ok {
-		return returnRow, nil
+		sql.CopyToSqlRow(0, returnRow.SqlValues(), row)
+		return nil
 	}
 
-	return childRow, nil
+	return nil
 }
 
-func shouldUseLogicResult(logic sql.Node, row sql.Row) (bool, sql.Row) {
+func shouldUseLogicResult(logic sql.Node, row sql.LazyRow) (bool, sql.LazyRow) {
 	switch logic := logic.(type) {
 	// TODO: are there other statement types that we should use here?
 	case *plan.Set:
@@ -257,7 +261,7 @@ func shouldUseLogicResult(logic sql.Node, row sql.Row) (bool, sql.Row) {
 				return true
 			})
 		}
-		return hasSetField, row[len(row)/2:]
+		return hasSetField, sql.NewSqlRowFromRow(row.SqlValues()[row.Count()/2:])
 	case *plan.TriggerBeginEndBlock:
 		hasSetField := false
 		transform.Inspect(logic, func(n sql.Node) bool {
@@ -287,7 +291,7 @@ func (t *triggerIter) Close(ctx *sql.Context) error {
 }
 
 type accumulatorRowHandler interface {
-	handleRowUpdate(row sql.Row) error
+	handleRowUpdate(row sql.LazyRow) error
 	okResult() types.OkResult
 }
 
@@ -304,7 +308,7 @@ type insertRowHandler struct {
 	lastInsertIdGetter        func(row sql.Row) int64
 }
 
-func (i *insertRowHandler) handleRowUpdate(row sql.Row) error {
+func (i *insertRowHandler) handleRowUpdate(row sql.LazyRow) error {
 	i.rowsAffected++
 	return nil
 }
@@ -319,13 +323,13 @@ type replaceRowHandler struct {
 	rowsAffected int
 }
 
-func (r *replaceRowHandler) handleRowUpdate(row sql.Row) error {
+func (r *replaceRowHandler) handleRowUpdate(row sql.LazyRow) error {
 	r.rowsAffected++
 
 	// If a row was deleted as well as inserted, increment the counter again. A row was deleted if at least one column in
 	// the first half of the row is non-null.
-	for i := 0; i < len(row)/2; i++ {
-		if row[i] != nil {
+	for i := 0; i < row.Count()/2; i++ {
+		if row.SqlValue(i) != nil {
 			r.rowsAffected++
 			break
 		}
@@ -344,17 +348,17 @@ type onDuplicateUpdateHandler struct {
 	clientFoundRowsCapability bool
 }
 
-func (o *onDuplicateUpdateHandler) handleRowUpdate(row sql.Row) error {
+func (o *onDuplicateUpdateHandler) handleRowUpdate(row sql.LazyRow) error {
 	// See https://dev.mysql.com/doc/refman/8.0/en/insert-on-duplicate.html for row count semantics
 	// If a row was inserted, increment by 1
-	if len(row) == len(o.schema) {
+	if row.Count() == len(o.schema) {
 		o.rowsAffected++
 		return nil
 	}
 
 	// Otherwise (a row was updated), increment by 2 if the row changed, 0 if not
-	oldRow := row[:len(row)/2]
-	newRow := row[len(row)/2:]
+	oldRow := sql.NewRow(row.SqlValues()[:row.Count()/2])
+	newRow := row.SqlValues()[row.Count()/2:]
 	if equals, err := oldRow.Equals(newRow, o.schema); err == nil {
 		if equals {
 			// Ig the CLIENT_FOUND_ROWS capabilities flag is set, increment by 1 if a row stays the same.
@@ -382,10 +386,10 @@ type updateRowHandler struct {
 	clientFoundRowsCapability bool
 }
 
-func (u *updateRowHandler) handleRowUpdate(row sql.Row) error {
+func (u *updateRowHandler) handleRowUpdate(row sql.LazyRow) error {
 	u.rowsMatched++
-	oldRow := row[:len(row)/2]
-	newRow := row[len(row)/2:]
+	oldRow := sql.NewRow(row.SqlValues()[:row.Count()/2])
+	newRow := row.SqlValues()[row.Count()/2:]
 	if equals, err := oldRow.Equals(newRow, u.schema); err == nil {
 		if !equals {
 			u.rowsAffected++
@@ -396,7 +400,7 @@ func (u *updateRowHandler) handleRowUpdate(row sql.Row) error {
 	return nil
 }
 
-func (u *updateRowHandler) handleRowUpdateWithIgnore(row sql.Row, ignore bool) error {
+func (u *updateRowHandler) handleRowUpdateWithIgnore(row sql.LazyRow, ignore bool) error {
 	if !ignore {
 		return u.handleRowUpdate(row)
 	}
@@ -438,9 +442,9 @@ func (u *updateJoinRowHandler) handleRowMatched() {
 	u.rowsMatched += 1
 }
 
-func (u *updateJoinRowHandler) handleRowUpdate(row sql.Row) error {
-	oldJoinRow := row[:len(row)/2]
-	newJoinRow := row[len(row)/2:]
+func (u *updateJoinRowHandler) handleRowUpdate(row sql.LazyRow) error {
+	oldJoinRow := row.SqlValues()[:row.Count()/2]
+	newJoinRow := row.SqlValues()[row.Count()/2:]
 
 	tableToOldRow := plan.SplitRowIntoTableRowMap(oldJoinRow, u.joinSchema)
 	tableToNewRow := plan.SplitRowIntoTableRowMap(newJoinRow, u.joinSchema)
@@ -478,7 +482,7 @@ type deleteRowHandler struct {
 	rowsAffected int
 }
 
-func (u *deleteRowHandler) handleRowUpdate(row sql.Row) error {
+func (u *deleteRowHandler) handleRowUpdate(row sql.LazyRow) error {
 	u.rowsAffected++
 	return nil
 }
@@ -493,14 +497,14 @@ type accumulatorIter struct {
 	updateRowHandler accumulatorRowHandler
 }
 
-func (a *accumulatorIter) Next(ctx *sql.Context) (r sql.Row, err error) {
+func (a *accumulatorIter) Next(ctx *sql.Context, row sql.LazyRow) (err error) {
 	run := false
 	a.once.Do(func() {
 		run = true
 	})
 
 	if !run {
-		return nil, io.EOF
+		return io.EOF
 	}
 
 	// We close our child iterator before returning any results. In
@@ -514,11 +518,11 @@ func (a *accumulatorIter) Next(ctx *sql.Context) (r sql.Row, err error) {
 	}()
 
 	for {
-		row, err := a.iter.Next(ctx)
+		err := a.iter.Next(ctx, nil)
 		igErr, isIg := err.(sql.IgnorableError)
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return ctx.Err()
 		default:
 		}
 		if err == io.EOF {
@@ -547,20 +551,20 @@ func (a *accumulatorIter) Next(ctx *sql.Context) (r sql.Row, err error) {
 			// By definition, ROW_COUNT() is equal to RowsAffected.
 			ctx.SetLastQueryInfoInt(sql.RowCount, int64(res.RowsAffected))
 
-			return sql.NewRow(res), nil
+			return nil
 		} else if isIg {
 			if ui, ok := a.updateRowHandler.(updateIgnoreAccumulatorRowHandler); ok {
 				err = ui.handleRowUpdateWithIgnore(igErr.OffendingRow, true)
 				if err != nil {
-					return nil, err
+					return err
 				}
 			}
 		} else if err != nil {
-			return nil, err
+			return err
 		} else {
 			err = a.updateRowHandler.handleRowUpdate(row)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
@@ -581,27 +585,28 @@ type updateSourceIter struct {
 	ignore      bool
 }
 
-func (u *updateSourceIter) Next(ctx *sql.Context) (sql.Row, error) {
-	oldRow, err := u.childIter.Next(ctx)
+func (u *updateSourceIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	oldRow := sql.NewSqlRow(0)
+	err := u.childIter.Next(ctx, oldRow)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	newRow, err := applyUpdateExpressionsWithIgnore(ctx, u.updateExprs, u.tableSchema, oldRow, u.ignore)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Reduce the row to the length of the schema. The length can differ when some update values come from an outer
 	// scope, which will be the first N values in the row.
 	// TODO: handle this in the analyzer instead?
 	expectedSchemaLen := len(u.tableSchema)
-	if expectedSchemaLen < len(oldRow) {
-		oldRow = oldRow[len(oldRow)-expectedSchemaLen:]
-		newRow = newRow[len(newRow)-expectedSchemaLen:]
+	if expectedSchemaLen < oldRow.Count() {
+		oldRow = sql.NewSqlRowFromRow(oldRow.SqlValues()[oldRow.Count()-expectedSchemaLen:])
+		newRow = sql.NewSqlRowFromRow(newRow.SqlValues()[newRow.Count()-expectedSchemaLen:])
 	}
 
-	return oldRow.Append(newRow), nil
+	return nil
 }
 
 func (u *updateSourceIter) Close(ctx *sql.Context) error {

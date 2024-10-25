@@ -50,8 +50,8 @@ func AddExpressionCloser(node sql.Node, iter sql.RowIter) sql.RowIter {
 }
 
 // Next implements the interface sql.RowIter.
-func (eci *ExprCloserIter) Next(ctx *sql.Context) (sql.Row, error) {
-	return eci.iter.Next(ctx)
+func (eci *ExprCloserIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	return eci.iter.Next(ctx, nil)
 }
 
 // Close implements the interface sql.RowIter.

@@ -76,7 +76,7 @@ func (c *ConvertTz) IsNullable() bool {
 }
 
 // Eval implements the sql.Expression interface.
-func (c *ConvertTz) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (c *ConvertTz) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	from, err := c.fromTz.Eval(ctx, row)
 	if err != nil {
 		return nil, err

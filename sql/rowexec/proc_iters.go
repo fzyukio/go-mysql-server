@@ -37,12 +37,12 @@ type ifElseIter struct {
 var _ plan.BlockRowIter = (*ifElseIter)(nil)
 
 // Next implements the sql.RowIter interface.
-func (i *ifElseIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *ifElseIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if err := startTransaction(ctx); err != nil {
-		return nil, err
+		return err
 	}
 
-	return i.branchIter.Next(ctx)
+	return i.branchIter.Next(ctx, nil)
 }
 
 // Close implements the sql.RowIter interface.
@@ -69,12 +69,12 @@ type beginEndIter struct {
 var _ sql.RowIter = (*beginEndIter)(nil)
 
 // Next implements the interface sql.RowIter.
-func (b *beginEndIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (b *beginEndIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if err := startTransaction(ctx); err != nil {
-		return nil, err
+		return err
 	}
 
-	row, err := b.rowIter.Next(ctx)
+	err := b.rowIter.Next(ctx, nil)
 	if err != nil {
 		if controlFlow, ok := err.(loopError); ok && strings.ToLower(controlFlow.Label) == strings.ToLower(b.Label) {
 			if controlFlow.IsExit {
@@ -89,9 +89,9 @@ func (b *beginEndIter) Next(ctx *sql.Context) (sql.Row, error) {
 		if errors.Is(err, expression.FetchEOF) {
 			err = io.EOF
 		}
-		return nil, err
+		return err
 	}
-	return row, nil
+	return nil
 }
 
 // Close implements the interface sql.RowIter.
@@ -106,8 +106,8 @@ type callIter struct {
 }
 
 // Next implements the sql.RowIter interface.
-func (iter *callIter) Next(ctx *sql.Context) (sql.Row, error) {
-	return iter.innerIter.Next(ctx)
+func (iter *callIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	return iter.innerIter.Next(ctx, nil)
 }
 
 // Close implements the sql.RowIter interface.
@@ -175,8 +175,8 @@ type elseCaseErrorIter struct{}
 var _ sql.RowIter = elseCaseErrorIter{}
 
 // Next implements the interface sql.RowIter.
-func (e elseCaseErrorIter) Next(ctx *sql.Context) (sql.Row, error) {
-	return nil, mysql.NewSQLError(1339, "20000", "Case not found for CASE statement")
+func (e elseCaseErrorIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	return mysql.NewSQLError(1339, "20000", "Case not found for CASE statement")
 }
 
 // Close implements the interface sql.RowIter.
@@ -188,21 +188,21 @@ func (e elseCaseErrorIter) Close(context *sql.Context) error {
 type openIter struct {
 	pRef *expression.ProcedureReference
 	name string
-	row  sql.Row
+	row  sql.LazyRow
 	b    *BaseBuilder
 }
 
 var _ sql.RowIter = (*openIter)(nil)
 
 // Next implements the interface sql.RowIter.
-func (o *openIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (o *openIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if err := o.openCursor(ctx, o.pRef, o.name, o.row); err != nil {
-		return nil, err
+		return err
 	}
-	return nil, io.EOF
+	return io.EOF
 }
 
-func (o *openIter) openCursor(ctx *sql.Context, ref *expression.ProcedureReference, name string, row sql.Row) error {
+func (o *openIter) openCursor(ctx *sql.Context, ref *expression.ProcedureReference, name string, row sql.LazyRow) error {
 	lowerName := strings.ToLower(name)
 	scope := ref.InnermostScope
 	for scope != nil {
@@ -233,11 +233,11 @@ type closeIter struct {
 var _ sql.RowIter = (*closeIter)(nil)
 
 // Next implements the interface sql.RowIter.
-func (c *closeIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (c *closeIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if err := c.pRef.CloseCursor(ctx, c.name); err != nil {
-		return nil, err
+		return err
 	}
-	return nil, io.EOF
+	return io.EOF
 }
 
 // Close implements the interface sql.RowIter.
@@ -264,7 +264,7 @@ func (l loopError) Error() string {
 
 // loopAcquireRowIter is a helper function for LOOP that conditionally acquires a new sql.RowIter. If a loop exit is
 // encountered, `exitIter` determines whether to return an empty iterator or an io.EOF error.
-func (b *BaseBuilder) loopAcquireRowIter(ctx *sql.Context, row sql.Row, label string, block *plan.Block, exitIter bool) (sql.RowIter, error) {
+func (b *BaseBuilder) loopAcquireRowIter(ctx *sql.Context, row sql.LazyRow, label string, block *plan.Block, exitIter bool) (sql.RowIter, error) {
 	blockIter, err := b.buildBlock(ctx, block, row)
 	if controlFlow, ok := err.(loopError); ok && strings.ToLower(controlFlow.Label) == strings.ToLower(label) {
 		if controlFlow.IsExit {
@@ -292,8 +292,8 @@ type leaveIter struct {
 var _ sql.RowIter = (*leaveIter)(nil)
 
 // Next implements the interface sql.RowIter.
-func (l *leaveIter) Next(ctx *sql.Context) (sql.Row, error) {
-	return nil, loopError{
+func (l *leaveIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	return loopError{
 		Label:  l.Label,
 		IsExit: true,
 	}
@@ -312,8 +312,8 @@ type iterateIter struct {
 var _ sql.RowIter = (*iterateIter)(nil)
 
 // Next implements the interface sql.RowIter.
-func (i *iterateIter) Next(ctx *sql.Context) (sql.Row, error) {
-	return nil, loopError{
+func (i *iterateIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	return loopError{
 		Label:  i.Label,
 		IsExit: false,
 	}

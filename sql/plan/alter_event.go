@@ -239,7 +239,7 @@ func (a *AlterEvent) WithDatabase(database sql.Database) (sql.Node, error) {
 }
 
 // RowIter implements the sql.Node interface.
-func (a *AlterEvent) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (a *AlterEvent) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	eventDb, ok := a.Db.(sql.EventDatabase)
 	if !ok {
 		return nil, sql.ErrEventsNotSupported.New(a.Db.Name())
@@ -422,13 +422,13 @@ type alterEventIter struct {
 }
 
 // Next implements the sql.RowIter interface.
-func (a *alterEventIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (a *alterEventIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	run := false
 	a.once.Do(func() {
 		run = true
 	})
 	if !run {
-		return nil, io.EOF
+		return io.EOF
 	}
 
 	var eventEndingTime time.Time
@@ -450,7 +450,7 @@ func (a *alterEventIter) Next(ctx *sql.Context) (sql.Row, error) {
 					Message: "Event execution time is in the past. Event has been disabled",
 				})
 			} else {
-				return nil, fmt.Errorf("Event execution time is in the past and ON COMPLETION NOT PRESERVE is set. The event was not changed. Specify a time in the future.")
+				return fmt.Errorf("Event execution time is in the past and ON COMPLETION NOT PRESERVE is set. The event was not changed. Specify a time in the future.")
 			}
 		}
 
@@ -466,16 +466,16 @@ func (a *alterEventIter) Next(ctx *sql.Context) (sql.Row, error) {
 				}
 				err := a.eventDb.DropEvent(ctx, a.originalName)
 				if err != nil {
-					return nil, err
+					return err
 				}
-				return sql.Row{types.NewOkResult(0)}, nil
+				return nil
 			}
 		}
 	}
 
 	enabled, err := a.eventDb.UpdateEvent(ctx, a.originalName, a.event)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// make sure to notify the EventSchedulerStatus after updating the event in the database
@@ -483,7 +483,7 @@ func (a *alterEventIter) Next(ctx *sql.Context) (sql.Row, error) {
 		a.scheduler.UpdateEvent(ctx, a.eventDb, a.originalName, a.event)
 	}
 
-	return sql.Row{types.NewOkResult(0)}, nil
+	return nil
 }
 
 // Close implements the sql.RowIter interface.

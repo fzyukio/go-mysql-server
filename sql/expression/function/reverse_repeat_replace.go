@@ -49,10 +49,7 @@ func (r *Reverse) Description() string {
 }
 
 // Eval implements the Expression interface.
-func (r *Reverse) Eval(
-	ctx *sql.Context,
-	row sql.Row,
-) (interface{}, error) {
+func (r *Reverse) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	//TODO: handle collations
 	v, err := r.Child.Eval(ctx, row)
 	if v == nil || err != nil {
@@ -147,10 +144,7 @@ func (r *Repeat) WithChildren(children ...sql.Expression) (sql.Expression, error
 }
 
 // Eval implements the Expression interface.
-func (r *Repeat) Eval(
-	ctx *sql.Context,
-	row sql.Row,
-) (interface{}, error) {
+func (r *Repeat) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	//TODO: handle collations
 	str, err := r.LeftChild.Eval(ctx, row)
 	if str == nil || err != nil {
@@ -245,10 +239,7 @@ func (r *Replace) WithChildren(children ...sql.Expression) (sql.Expression, erro
 }
 
 // Eval implements the Expression interface.
-func (r *Replace) Eval(
-	ctx *sql.Context,
-	row sql.Row,
-) (interface{}, error) {
+func (r *Replace) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	//TODO: handle collations
 	str, err := r.str.Eval(ctx, row)
 	if str == nil || err != nil {

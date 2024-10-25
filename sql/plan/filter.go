@@ -120,20 +120,20 @@ func NewFilterIter(
 }
 
 // Next implements the RowIter interface.
-func (i *FilterIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *FilterIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	for {
-		row, err := i.childIter.Next(ctx)
+		err := i.childIter.Next(ctx, row)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		res, err := sql.EvaluateCondition(ctx, i.cond, row)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if sql.IsTrue(res) {
-			return row, nil
+			return nil
 		}
 	}
 }

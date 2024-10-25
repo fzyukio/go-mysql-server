@@ -80,7 +80,7 @@ func (s *ShowEvents) Schema() sql.Schema {
 }
 
 // RowIter implements the sql.Node interface.
-func (s *ShowEvents) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (s *ShowEvents) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	var rows []sql.Row
 	dbName := s.db.Name()
 

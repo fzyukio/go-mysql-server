@@ -673,6 +673,6 @@ func (*RevokeProxy) CollationCoercibility(ctx *sql.Context) (collation sql.Colla
 }
 
 // RowIter implements the interface sql.Node.
-func (n *RevokeProxy) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (n *RevokeProxy) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	return nil, fmt.Errorf("not yet implemented")
 }

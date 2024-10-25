@@ -354,7 +354,7 @@ func validateGeomComp(geom1, geom2 interface{}, funcName string) (types.Geometry
 }
 
 // Eval implements the sql.Expression interface.
-func (i *Intersects) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (i *Intersects) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	geom1, err := i.LeftChild.Eval(ctx, row)
 	if err != nil {
 		return nil, err

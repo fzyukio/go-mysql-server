@@ -80,7 +80,7 @@ func (js *JSONQuote) WithChildren(children ...sql.Expression) (sql.Expression, e
 }
 
 // Eval implements the Expression interface.
-func (js *JSONQuote) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (js *JSONQuote) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	typ := js.Child.Type()
 	if typ != types.Null && !types.IsText(typ) {
 		return nil, sql.ErrInvalidType.New(typ)

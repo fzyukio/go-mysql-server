@@ -59,7 +59,7 @@ func (*IsTrue) IsNullable() bool {
 }
 
 // Eval implements the Expression interface.
-func (e *IsTrue) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (e *IsTrue) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	v, err := e.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err

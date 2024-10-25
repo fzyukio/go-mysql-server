@@ -36,7 +36,7 @@ func NewLeftMergeJoin(left, right sql.Node, cond sql.Expression) *plan.JoinNode 
 	return plan.NewJoin(left, right, plan.JoinTypeLeftOuterMerge, cond)
 }
 
-func newMergeJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row sql.Row) (sql.RowIter, error) {
+func newMergeJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row sql.LazyRow) (sql.RowIter, error) {
 	l, err := b.Build(ctx, j.Left(), row)
 	if err != nil {
 		return nil, err
@@ -46,10 +46,10 @@ func newMergeJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode,
 		return nil, err
 	}
 
-	fullRow := make(sql.Row, len(row)+len(j.Left().Schema())+len(j.Right().Schema()))
-	fullRow[0] = row
-	if len(row) > 0 {
-		copy(fullRow[0:], row[:])
+	fullRow := sql.NewSqlRow(row.Count() + len(j.Left().Schema()) + len(j.Right().Schema()))
+	sql.CopyToSqlRow(0, row.SqlValues(), fullRow)
+	if row.Count() > 0 {
+		//buildRow(0, row, fullRow)
 	}
 
 	// a merge join's first filter provides direction information
@@ -79,7 +79,7 @@ func newMergeJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode,
 		typ:         j.Op,
 		fullRow:     fullRow,
 		scopeLen:    j.ScopeLen,
-		parentLen:   len(row) - j.ScopeLen,
+		parentLen:   row.Count() - j.ScopeLen,
 		leftRowLen:  len(j.Left().Schema()),
 		rightRowLen: len(j.Right().Schema()),
 	}
@@ -98,13 +98,13 @@ type mergeJoinIter struct {
 	filters []sql.Expression
 	left    sql.RowIter
 	right   sql.RowIter
-	fullRow sql.Row
+	fullRow sql.LazyRow
 
 	// match lookahead buffers and state tracking (private to match)
-	rightBuf  []sql.Row
+	rightBuf  []sql.LazyRow
 	bufI      int
-	rightPeek sql.Row
-	leftPeek  sql.Row
+	rightPeek sql.LazyRow
+	leftPeek  sql.LazyRow
 	rightDone bool
 	leftDone  bool
 
@@ -129,7 +129,7 @@ type mergeJoinIter struct {
 
 var _ sql.RowIter = (*mergeJoinIter)(nil)
 
-func (i *mergeJoinIter) sel(ctx *sql.Context, row sql.Row) (bool, error) {
+func (i *mergeJoinIter) sel(ctx *sql.Context, row sql.LazyRow) (bool, error) {
 	for _, f := range i.filters {
 		res, err := sql.EvaluateCondition(ctx, f, row)
 		if err != nil {
@@ -157,9 +157,9 @@ const (
 	msRejectNull
 )
 
-func (i *mergeJoinIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *mergeJoinIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	var err error
-	var ret sql.Row
+	var ret sql.LazyRow
 	var res int
 
 	//  The common inner join match flow:
@@ -192,7 +192,7 @@ func (i *mergeJoinIter) Next(ctx *sql.Context) (sql.Row, error) {
 			if !i.init {
 				err = i.initIters(ctx)
 				if err != nil {
-					return nil, err
+					return err
 				}
 			}
 			nextState = msExhaustCheck
@@ -201,7 +201,7 @@ func (i *mergeJoinIter) Next(ctx *sql.Context) (sql.Row, error) {
 				ret = i.copyReturnRow()
 				nextState = msRetLeft
 			} else if i.exhausted() {
-				return nil, io.EOF
+				return io.EOF
 			} else {
 				nextState = msCompare
 			}
@@ -211,7 +211,7 @@ func (i *mergeJoinIter) Next(ctx *sql.Context) (sql.Row, error) {
 				nextState = msRejectNull
 				break
 			} else if err != nil {
-				return nil, err
+				return err
 			}
 			switch {
 			case res < 0:
@@ -245,13 +245,13 @@ func (i *mergeJoinIter) Next(ctx *sql.Context) (sql.Row, error) {
 		case msIncLeft:
 			err = i.incLeft(ctx)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			nextState = msExhaustCheck
 		case msIncRight:
 			err = i.incRight(ctx)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			nextState = msExhaustCheck
 		case msSelect:
@@ -260,11 +260,11 @@ func (i *mergeJoinIter) Next(ctx *sql.Context) (sql.Row, error) {
 
 			ok, err := i.sel(ctx, ret)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			err = i.incMatch(ctx)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if ok {
 				if !i.matchIncLeft {
@@ -287,27 +287,28 @@ func (i *mergeJoinIter) Next(ctx *sql.Context) (sql.Row, error) {
 				// |i.incMatch| call incremented the left row.
 				// |currLeftMatched| indicates whether |ret| has already
 				// successfully met a join condition.
-				return i.removeParentRow(i.nullifyRightRow(ret)), nil
+				return nil
 			} else {
 				nextState = msExhaustCheck
 			}
 
 		case msRet:
-			return i.removeParentRow(ret), nil
+			return nil
 		case msRetLeft:
-			ret = i.removeParentRow(i.nullifyRightRow(ret))
+			//ret = i.removeParentRow(i.nullifyRightRow(ret))
+			i.nullifyRightRow(ret)
 			err = i.incLeft(ctx)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			return ret, nil
+			return nil
 		}
 	}
 }
 
-func (i *mergeJoinIter) copyReturnRow() sql.Row {
-	ret := make(sql.Row, len(i.fullRow))
-	copy(ret, i.fullRow)
+func (i *mergeJoinIter) copyReturnRow() sql.LazyRow {
+	ret := sql.NewSqlRow(i.fullRow.Count())
+	sql.CopyToSqlRow(0, i.fullRow.SqlValues(), ret)
 	return ret
 }
 
@@ -325,13 +326,13 @@ func (i *mergeJoinIter) incMatch(ctx *sql.Context) error {
 
 	if !i.rightDone {
 		// initialize right matches buffer
-		right := make(sql.Row, i.rightRowLen)
-		copy(right, i.fullRow[i.scopeLen+i.parentLen+i.leftRowLen:])
+		right := sql.NewSqlRow(i.rightRowLen)
+		right.CopyRange(0, i.fullRow.SqlValues()[i.scopeLen+i.parentLen+i.leftRowLen:])
 		i.rightBuf = append(i.rightBuf, right)
 
 		match := true
 		var err error
-		var peek sql.Row
+		var peek sql.LazyRow
 		for match {
 			match, peek, err = i.peekMatch(ctx, i.right)
 			if err != nil {
@@ -368,7 +369,7 @@ func (i *mergeJoinIter) incMatch(ctx *sql.Context) error {
 
 	if !i.leftDone {
 		// rightBuf has already been validated, we don't need compare
-		copySubslice(i.fullRow, i.rightBuf[i.bufI], i.scopeLen+i.parentLen+i.leftRowLen)
+		i.fullRow.CopyRange(i.scopeLen+i.parentLen+i.leftRowLen, i.rightBuf[i.bufI])
 		i.bufI++
 		return nil
 	}
@@ -386,7 +387,7 @@ func (i *mergeJoinIter) incMatch(ctx *sql.Context) error {
 		if i.lojFinalize() {
 			// left joins expect the left row in |i.fullRow| as long
 			// as the left iter is not exhausted.
-			copySubslice(i.fullRow, i.leftPeek, i.scopeLen+i.parentLen)
+			i.fullRow.CopyRange(i.scopeLen+i.parentLen, i.leftPeek)
 		}
 		return nil
 	}
@@ -394,8 +395,8 @@ func (i *mergeJoinIter) incMatch(ctx *sql.Context) error {
 	// both lookaheads fail the join condition. Drain
 	// lookahead rows / increment both iterators.
 	i.matchIncLeft = true
-	copySubslice(i.fullRow, i.leftPeek, i.scopeLen+i.parentLen)
-	copySubslice(i.fullRow, i.rightPeek, i.scopeLen+i.parentLen+i.leftRowLen)
+	i.fullRow.CopyRange(i.scopeLen+i.parentLen, i.leftPeek)
+	i.fullRow.CopyRange(i.scopeLen+i.parentLen+i.leftRowLen, i.rightPeek)
 
 	return nil
 }
@@ -407,11 +408,10 @@ func (i *mergeJoinIter) lojFinalize() bool {
 }
 
 // nullifyRightRow sets the values corresponding to the right row to nil
-func (i *mergeJoinIter) nullifyRightRow(r sql.Row) sql.Row {
-	for j := i.scopeLen + i.parentLen + i.leftRowLen; j < len(r); j++ {
-		r[j] = nil
+func (i *mergeJoinIter) nullifyRightRow(r sql.LazyRow) {
+	for j := i.scopeLen + i.parentLen + i.leftRowLen; j < r.Count(); j++ {
+		r.SetSqlValue(j, nil)
 	}
-	return r
 }
 
 // initIters populates i.fullRow and clears the match state
@@ -444,23 +444,25 @@ func (i *mergeJoinIter) resetMatchState() {
 // We return whether a successful match was found, the lookahead row for saving
 // in the case of failure, and an error or nil. If the iterator io.EOFs, we return
 // no match, no lookahead row, and no error.
-func (i *mergeJoinIter) peekMatch(ctx *sql.Context, iter sql.RowIter) (bool, sql.Row, error) {
+func (i *mergeJoinIter) peekMatch(ctx *sql.Context, iter sql.RowIter) (bool, sql.LazyRow, error) {
 	var off int
-	var restore sql.Row
+	var restore sql.LazyRow
 	switch iter {
 	case i.left:
 		off = i.scopeLen + i.parentLen
-		restore = make(sql.Row, i.leftRowLen)
-		copy(restore, i.fullRow[off:off+i.leftRowLen])
+		restore = sql.NewSqlRow(i.leftRowLen)
+		restore.CopyRange(0, i.fullRow.SqlValues()[off:off+i.leftRowLen]...)
 	case i.right:
 		off = i.scopeLen + i.parentLen + i.leftRowLen
-		restore = make(sql.Row, i.rightRowLen)
-		copy(restore, i.fullRow[off:off+i.rightRowLen])
+		restore = sql.NewSqlRow(i.rightRowLen)
+		restore.CopyRange(0, i.fullRow.SqlValues()[off:off+i.rightRowLen]...)
 	default:
 	}
 
 	// peek lookahead
-	peek, err := iter.Next(ctx)
+	// TODO fix size
+	peek := sql.NewSqlRow(0)
+	err := iter.Next(ctx, peek)
 	if errors.Is(err, io.EOF) {
 		// io.EOF is the only nil row nil err return
 		return false, nil, nil
@@ -469,17 +471,17 @@ func (i *mergeJoinIter) peekMatch(ctx *sql.Context, iter sql.RowIter) (bool, sql
 	}
 
 	// check if lookahead valid
-	copySubslice(i.fullRow, peek, off)
+	i.fullRow.CopyRange(off, peek.SqlValues()...)
 	res, err := i.cmp.Compare(ctx, i.fullRow)
 	if expression.ErrNilOperand.Is(err) {
 		// revert change to output row if no match
-		copySubslice(i.fullRow, restore, off)
+		i.fullRow.CopyRange(off, restore.SqlValues()...)
 	} else if err != nil {
 		return false, nil, err
 	}
 	if res != 0 {
 		// revert change to output row if no match
-		copySubslice(i.fullRow, restore, off)
+		i.fullRow.CopyRange(off, restore.SqlValues()...)
 	}
 	return res == 0, peek, nil
 }
@@ -499,13 +501,13 @@ func copySubslice(dst, src sql.Row, off int) {
 // incLeft updates |i.fullRow|'s left row
 func (i *mergeJoinIter) incLeft(ctx *sql.Context) error {
 	i.leftMatched = false
-	var row sql.Row
+	var row sql.LazyRow
 	var err error
 	if i.leftPeek != nil {
 		row = i.leftPeek
 		i.leftPeek = nil
 	} else {
-		row, err = i.left.Next(ctx)
+		err = i.left.Next(ctx, nil)
 		if errors.Is(err, io.EOF) {
 			i.leftExhausted = true
 			return nil
@@ -515,8 +517,8 @@ func (i *mergeJoinIter) incLeft(ctx *sql.Context) error {
 	}
 
 	off := i.scopeLen + i.parentLen
-	for j, v := range row {
-		i.fullRow[off+j] = v
+	for j, v := range row.SqlValues() {
+		i.fullRow.SetSqlValue(off+j, v)
 	}
 
 	return nil
@@ -524,13 +526,13 @@ func (i *mergeJoinIter) incLeft(ctx *sql.Context) error {
 
 // incRight updates |i.fullRow|'s right row
 func (i *mergeJoinIter) incRight(ctx *sql.Context) error {
-	var row sql.Row
+	var row sql.LazyRow
 	var err error
 	if i.rightPeek != nil {
 		row = i.rightPeek
 		i.rightPeek = nil
 	} else {
-		row, err = i.right.Next(ctx)
+		err = i.right.Next(ctx, nil)
 		if errors.Is(err, io.EOF) {
 			i.rightExhausted = true
 			return nil
@@ -540,8 +542,8 @@ func (i *mergeJoinIter) incRight(ctx *sql.Context) error {
 	}
 
 	off := i.scopeLen + i.parentLen + i.leftRowLen
-	for j, v := range row {
-		i.fullRow[off+j] = v
+	for j, v := range row.SqlValues() {
+		i.fullRow.SetSqlValue(off+j, v)
 	}
 
 	return nil
@@ -549,12 +551,14 @@ func (i *mergeJoinIter) incRight(ctx *sql.Context) error {
 
 // incLeft updates |i.fullRow|'s |inRow|
 func (i *mergeJoinIter) incIter(ctx *sql.Context, iter sql.RowIter, off int) error {
-	row, err := iter.Next(ctx)
+	// TODO fix size
+	row := sql.NewSqlRow(0)
+	err := iter.Next(ctx, row)
 	if err != nil {
 		return err
 	}
-	for j, v := range row {
-		i.fullRow[off+j] = v
+	for j, v := range row.SqlValues() {
+		i.fullRow.SetSqlValue(off+j, v)
 	}
 	return nil
 }

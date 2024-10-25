@@ -659,7 +659,7 @@ func TestOrderByGroupBy(t *testing.T, harness Harness) {
 		rowCount = 0
 		isServerTest := IsServerEngine(e)
 		for {
-			row, err = rowIter.Next(ctx)
+			err = rowIter.Next(ctx, nil)
 			if err == io.EOF {
 				break
 			}
@@ -694,7 +694,7 @@ func TestOrderByGroupBy(t *testing.T, harness Harness) {
 		require.NoError(t, err)
 		rowCount = 0
 		for {
-			row, err = rowIter.Next(ctx)
+			err = rowIter.Next(ctx, nil)
 			if err == io.EOF {
 				break
 			}
@@ -1898,7 +1898,7 @@ func TestUserPrivileges(t *testing.T, harness ClientHarness) {
 				t.Run(lastQuery, func(t *testing.T) {
 					_, iter, _, err := engine.Query(ctx, lastQuery)
 					if err == nil {
-						_, err = sql.RowIterToRows(ctx, iter)
+						_, err = sql.RowIterToRows(ctx, iter, 0)
 					}
 					require.Error(t, err)
 					for _, errKind := range []*errors.Kind{
@@ -1916,7 +1916,7 @@ func TestUserPrivileges(t *testing.T, harness ClientHarness) {
 				t.Run(lastQuery, func(t *testing.T) {
 					sch, iter, _, err := engine.Query(ctx, lastQuery)
 					require.NoError(t, err)
-					rows, err := sql.RowIterToRows(ctx, iter)
+					rows, err := sql.RowIterToRows(ctx, iter, 0)
 					require.NoError(t, err)
 					// See the comment on QuickPrivilegeTest for a more in-depth explanation, but essentially we treat
 					// nil in script.Expected as matching "any" non-error result.
@@ -2499,31 +2499,31 @@ func initializeViewsForVersionedViewsTests(t *testing.T, harness VersionedDBHarn
 	ctx := NewContext(harness)
 	_, iter, _, err := e.Query(ctx, "CREATE VIEW myview1 AS SELECT * FROM myhistorytable")
 	require.NoError(err)
-	_, err = sql.RowIterToRows(ctx, iter)
+	_, err = sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 
 	// nested views
 	_, iter, _, err = e.Query(ctx, "CREATE VIEW myview2 AS SELECT * FROM myview1 WHERE i = 1")
 	require.NoError(err)
-	_, err = sql.RowIterToRows(ctx, iter)
+	_, err = sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 
 	// views with unions
 	_, iter, _, err = e.Query(ctx, "CREATE VIEW myview3 AS SELECT i from myview1 union select s from myhistorytable")
 	require.NoError(err)
-	_, err = sql.RowIterToRows(ctx, iter)
+	_, err = sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 
 	// views with subqueries
 	_, iter, _, err = e.Query(ctx, "CREATE VIEW myview4 AS SELECT * FROM myhistorytable where i in (select distinct cast(RIGHT(s, 1) as signed) from myhistorytable)")
 	require.NoError(err)
-	_, err = sql.RowIterToRows(ctx, iter)
+	_, err = sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 
 	// views with a subquery alias
 	_, iter, _, err = e.Query(ctx, "CREATE VIEW myview5 AS SELECT * FROM (select * from myhistorytable where i in (select distinct cast(RIGHT(s, 1) as signed))) as sq")
 	require.NoError(err)
-	_, err = sql.RowIterToRows(ctx, iter)
+	_, err = sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 }
 
@@ -4480,7 +4480,7 @@ func TestClearWarnings(t *testing.T, harness Harness) {
 
 	_, iter, _, err = e.Query(ctx, "SHOW WARNINGS")
 	require.NoError(err)
-	rows, err := sql.RowIterToRows(ctx, iter)
+	rows, err := sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 	err = iter.Close(ctx)
 	require.NoError(err)
@@ -4488,7 +4488,7 @@ func TestClearWarnings(t *testing.T, harness Harness) {
 
 	_, iter, _, err = e.Query(ctx, "SHOW WARNINGS LIMIT 1")
 	require.NoError(err)
-	rows, err = sql.RowIterToRows(ctx, iter)
+	rows, err = sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 	err = iter.Close(ctx)
 	require.NoError(err)
@@ -4496,7 +4496,7 @@ func TestClearWarnings(t *testing.T, harness Harness) {
 
 	_, iter, _, err = e.Query(ctx, "SELECT * FROM mytable LIMIT 1")
 	require.NoError(err)
-	_, err = sql.RowIterToRows(ctx, iter)
+	_, err = sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 	err = iter.Close(ctx)
 	require.NoError(err)
@@ -4592,11 +4592,11 @@ func TestConcurrentTransactions(t *testing.T, harness Harness) {
 	_, iter2, _, err := e.Query(clientSessionB, "INSERT INTO a VALUES (2,2)")
 	require.NoError(err)
 
-	rows, err := sql.RowIterToRows(clientSessionA, iter)
+	rows, err := sql.RowIterToRows(clientSessionA, iter, 0)
 	require.NoError(err)
 	require.Len(rows, 1)
 
-	rows, err = sql.RowIterToRows(clientSessionB, iter2)
+	rows, err = sql.RowIterToRows(clientSessionB, iter2, 0)
 	require.NoError(err)
 	require.Len(rows, 1)
 }
@@ -4768,7 +4768,7 @@ func TestTracing(t *testing.T, harness Harness) {
 		LIMIT 1`)
 	require.NoError(t, err)
 
-	rows, err := sql.RowIterToRows(ctx, iter)
+	rows, err := sql.RowIterToRows(ctx, iter, 0)
 	require.Len(t, rows, 1)
 	require.NoError(t, err)
 
@@ -5443,7 +5443,7 @@ func TestCharsetCollationEngine(t *testing.T, harness Harness) {
 					_, iter, _, err := engine.Query(ctx, query.Query)
 					if query.Error || query.ErrKind != nil {
 						if err == nil {
-							_, err := sql.RowIterToRows(ctx, iter)
+							_, err := sql.RowIterToRows(ctx, iter, 0)
 							require.Error(t, err)
 							if query.ErrKind != nil {
 								require.True(t, query.ErrKind.Is(err))
@@ -5456,7 +5456,7 @@ func TestCharsetCollationEngine(t *testing.T, harness Harness) {
 						}
 					} else {
 						require.NoError(t, err)
-						rows, err := sql.RowIterToRows(ctx, iter)
+						rows, err := sql.RowIterToRows(ctx, iter, 0)
 						require.NoError(t, err)
 						require.Equal(t, query.Expected, rows)
 					}
@@ -5637,7 +5637,7 @@ func TestTypesOverWire(t *testing.T, harness ClientHarness, sessionBuilder serve
 					expectedRowSet := script.Results[queryIdx]
 					expectedRowIdx := 0
 					var engineRow sql.Row
-					for engineRow, err = engineIter.Next(ctx); err == nil; engineRow, err = engineIter.Next(ctx) {
+					for err = engineIter.Next(ctx, nil); err == nil; err = engineIter.Next(ctx, nil) {
 						if !assert.True(t, r.Next()) {
 							break
 						}
@@ -5918,7 +5918,7 @@ func DrainIterator(ctx *sql.Context, iter sql.RowIter) error {
 	}
 
 	for {
-		_, err := iter.Next(ctx)
+		err := iter.Next(ctx, nil)
 		if err == io.EOF {
 			break
 		} else if err != nil {
@@ -5937,7 +5937,7 @@ func DrainIteratorIgnoreErrors(ctx *sql.Context, iter sql.RowIter) {
 	}
 
 	for {
-		_, err := iter.Next(ctx)
+		err := iter.Next(ctx, nil)
 		if err == io.EOF {
 			return
 		}

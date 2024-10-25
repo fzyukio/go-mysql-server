@@ -67,7 +67,7 @@ func (c *Conv) String() string {
 }
 
 // Eval implements the Expression interface.
-func (c *Conv) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (c *Conv) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	n, err := c.n.Eval(ctx, row)
 	if err != nil {
 		return nil, err

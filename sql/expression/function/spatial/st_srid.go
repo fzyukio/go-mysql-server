@@ -77,7 +77,7 @@ func (s *SRID) WithChildren(children ...sql.Expression) (sql.Expression, error) 
 }
 
 // Eval implements the sql.Expression interface.
-func (s *SRID) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (s *SRID) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	g, err := s.ChildExpressions[0].Eval(ctx, row)
 	if err != nil {
 		return nil, err

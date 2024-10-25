@@ -62,7 +62,7 @@ func (s StrToDate) IsNullable() bool {
 }
 
 // Eval evaluates the given row and returns a result.
-func (s StrToDate) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (s StrToDate) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	date, err := s.Date.Eval(ctx, row)
 	if err != nil {
 		return nil, err

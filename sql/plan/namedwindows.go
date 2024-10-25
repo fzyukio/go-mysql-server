@@ -76,7 +76,7 @@ func (n *NamedWindows) DebugString() string {
 }
 
 // RowIter implements sql.Node
-func (n *NamedWindows) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (n *NamedWindows) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	panic("cannot iterate *plan.NamedWindows")
 }
 

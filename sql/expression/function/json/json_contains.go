@@ -117,7 +117,7 @@ func (j *JSONContains) IsNullable() bool {
 	return j.JSONTarget.IsNullable() || j.JSONCandidate.IsNullable() || (j.Path != nil && j.Path.IsNullable())
 }
 
-func (j *JSONContains) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (j *JSONContains) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	target, err := getSearchableJSONVal(ctx, row, j.JSONTarget)
 	if err != nil {
 		return nil, getJsonFunctionError("json_contains", 1, err)

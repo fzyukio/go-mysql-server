@@ -120,7 +120,7 @@ func (j *JSONSet) IsNullable() bool {
 }
 
 // Eval implements sql.Expression
-func (j *JSONSet) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (j *JSONSet) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	doc, err := getMutableJSONVal(ctx, row, j.JSONDoc)
 	if err != nil || doc == nil {
 		return nil, getJsonFunctionError("json_set", 1, err)

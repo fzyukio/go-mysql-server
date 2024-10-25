@@ -59,7 +59,7 @@ func (r *RenameTable) IsReadOnly() bool {
 	return false
 }
 
-func (r *RenameTable) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (r *RenameTable) RowIter(ctx *sql.Context, row sql.LazyRow) (sql.RowIter, error) {
 	renamer, _ := r.Db.(sql.TableRenamer)
 	viewDb, _ := r.Db.(sql.ViewDatabase)
 	viewRegistry := ctx.GetViewRegistry()
@@ -443,7 +443,7 @@ func (c ColDefaultExpression) WithChildren(children ...sql.Expression) (sql.Expr
 	panic("ColDefaultExpression is only meant for immediate evaluation and should never be modified")
 }
 
-func (c ColDefaultExpression) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (c ColDefaultExpression) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	columnDefaultExpr := c.Column.Default
 	if columnDefaultExpr == nil {
 		columnDefaultExpr = c.Column.Generated

@@ -33,7 +33,7 @@ import (
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
-func (b *BaseBuilder) buildAlterAutoIncrement(ctx *sql.Context, n *plan.AlterAutoIncrement, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildAlterAutoIncrement(ctx *sql.Context, n *plan.AlterAutoIncrement, row sql.LazyRow) (sql.RowIter, error) {
 	err := b.executeAlterAutoInc(ctx, n)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (b *BaseBuilder) buildAlterAutoIncrement(ctx *sql.Context, n *plan.AlterAut
 	return sql.RowsToRowIter(), nil
 }
 
-func (b *BaseBuilder) buildDropTrigger(ctx *sql.Context, n *plan.DropTrigger, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDropTrigger(ctx *sql.Context, n *plan.DropTrigger, row sql.LazyRow) (sql.RowIter, error) {
 	triggerDb, ok := n.Db.(sql.TriggerDatabase)
 	if !ok {
 		if n.IfExists {
@@ -60,7 +60,7 @@ func (b *BaseBuilder) buildDropTrigger(ctx *sql.Context, n *plan.DropTrigger, ro
 	return rowIterWithOkResultWithZeroRowsAffected(), nil
 }
 
-func (b *BaseBuilder) buildLoadData(ctx *sql.Context, n *plan.LoadData, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildLoadData(ctx *sql.Context, n *plan.LoadData, row sql.LazyRow) (sql.RowIter, error) {
 	var reader io.ReadCloser
 	var err error
 	if n.Local {
@@ -138,13 +138,13 @@ func (b *BaseBuilder) buildLoadData(ctx *sql.Context, n *plan.LoadData, row sql.
 	}, nil
 }
 
-func (b *BaseBuilder) buildDropConstraint(ctx *sql.Context, n *plan.DropConstraint, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDropConstraint(ctx *sql.Context, n *plan.DropConstraint, row sql.LazyRow) (sql.RowIter, error) {
 	// DropConstraint should be replaced by another node type (DropForeignKey, DropCheck, etc.) during analysis,
 	// so this is an error
 	return nil, fmt.Errorf("%T does not have an execution iterator, this is a bug", n)
 }
 
-func (b *BaseBuilder) buildCreateView(ctx *sql.Context, n *plan.CreateView, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildCreateView(ctx *sql.Context, n *plan.CreateView, row sql.LazyRow) (sql.RowIter, error) {
 	registry := ctx.GetViewRegistry()
 	if n.IsReplace {
 		if dropper, ok := n.Database().(sql.ViewDatabase); ok {
@@ -179,7 +179,7 @@ func (b *BaseBuilder) buildCreateView(ctx *sql.Context, n *plan.CreateView, row 
 	}
 }
 
-func (b *BaseBuilder) buildCreateCheck(ctx *sql.Context, n *plan.CreateCheck, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildCreateCheck(ctx *sql.Context, n *plan.CreateCheck, row sql.LazyRow) (sql.RowIter, error) {
 	err := b.executeCreateCheck(ctx, n)
 	if err != nil {
 		return nil, err
@@ -187,7 +187,7 @@ func (b *BaseBuilder) buildCreateCheck(ctx *sql.Context, n *plan.CreateCheck, ro
 	return rowIterWithOkResultWithZeroRowsAffected(), nil
 }
 
-func (b *BaseBuilder) buildAlterDefaultSet(ctx *sql.Context, n *plan.AlterDefaultSet, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildAlterDefaultSet(ctx *sql.Context, n *plan.AlterDefaultSet, row sql.LazyRow) (sql.RowIter, error) {
 	// Grab the table fresh from the database.
 	table, err := getTableFromDatabase(ctx, n.Database(), n.Table)
 	if err != nil {
@@ -218,7 +218,7 @@ func (b *BaseBuilder) buildAlterDefaultSet(ctx *sql.Context, n *plan.AlterDefaul
 	return rowIterWithOkResultWithZeroRowsAffected(), alterable.ModifyColumn(ctx, n.ColumnName, newCol, nil)
 }
 
-func (b *BaseBuilder) buildDropCheck(ctx *sql.Context, n *plan.DropCheck, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDropCheck(ctx *sql.Context, n *plan.DropCheck, row sql.LazyRow) (sql.RowIter, error) {
 	err := b.executeDropCheck(ctx, n)
 	if err != nil {
 		return nil, err
@@ -226,11 +226,11 @@ func (b *BaseBuilder) buildDropCheck(ctx *sql.Context, n *plan.DropCheck, row sq
 	return sql.RowsToRowIter(), nil
 }
 
-func (b *BaseBuilder) buildRenameTable(ctx *sql.Context, n *plan.RenameTable, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildRenameTable(ctx *sql.Context, n *plan.RenameTable, row sql.LazyRow) (sql.RowIter, error) {
 	return n.RowIter(ctx, row)
 }
 
-func (b *BaseBuilder) buildModifyColumn(ctx *sql.Context, n *plan.ModifyColumn, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildModifyColumn(ctx *sql.Context, n *plan.ModifyColumn, row sql.LazyRow) (sql.RowIter, error) {
 	tbl, err := getTableFromDatabase(ctx, n.Database(), n.Table)
 	if err != nil {
 		return nil, err
@@ -269,11 +269,11 @@ func (b *BaseBuilder) buildModifyColumn(ctx *sql.Context, n *plan.ModifyColumn, 
 	}, nil
 }
 
-func (b *BaseBuilder) buildSingleDropView(ctx *sql.Context, n *plan.SingleDropView, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildSingleDropView(ctx *sql.Context, n *plan.SingleDropView, row sql.LazyRow) (sql.RowIter, error) {
 	return sql.RowsToRowIter(), nil
 }
 
-func (b *BaseBuilder) buildCreateIndex(ctx *sql.Context, n *plan.CreateIndex, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildCreateIndex(ctx *sql.Context, n *plan.CreateIndex, row sql.LazyRow) (sql.RowIter, error) {
 	table, ok := n.Table.(*plan.ResolvedTable)
 	if !ok {
 		return nil, plan.ErrNotIndexable.New()
@@ -356,11 +356,11 @@ func (b *BaseBuilder) buildCreateIndex(ctx *sql.Context, n *plan.CreateIndex, ro
 	return sql.RowsToRowIter(), nil
 }
 
-func (b *BaseBuilder) buildDeclareCondition(ctx *sql.Context, n *plan.DeclareCondition, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDeclareCondition(ctx *sql.Context, n *plan.DeclareCondition, row sql.LazyRow) (sql.RowIter, error) {
 	return sql.RowsToRowIter(), nil
 }
 
-func (b *BaseBuilder) buildCreateDB(ctx *sql.Context, n *plan.CreateDB, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildCreateDB(ctx *sql.Context, n *plan.CreateDB, row sql.LazyRow) (sql.RowIter, error) {
 	exists := n.Catalog.HasDatabase(ctx, n.DbName)
 	rows := []sql.Row{{types.OkResult{RowsAffected: 1}}}
 
@@ -390,7 +390,7 @@ func (b *BaseBuilder) buildCreateDB(ctx *sql.Context, n *plan.CreateDB, row sql.
 	return sql.RowsToRowIter(rows...), nil
 }
 
-func (b *BaseBuilder) buildCreateSchema(ctx *sql.Context, n *plan.CreateSchema, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildCreateSchema(ctx *sql.Context, n *plan.CreateSchema, row sql.LazyRow) (sql.RowIter, error) {
 	database := ctx.GetCurrentDatabase()
 	if database == "" {
 		return nil, sql.ErrNoDatabaseSelected.New()
@@ -442,7 +442,7 @@ func (b *BaseBuilder) buildCreateSchema(ctx *sql.Context, n *plan.CreateSchema, 
 	return sql.RowsToRowIter(rows...), nil
 }
 
-func (b *BaseBuilder) buildAlterDefaultDrop(ctx *sql.Context, n *plan.AlterDefaultDrop, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildAlterDefaultDrop(ctx *sql.Context, n *plan.AlterDefaultDrop, row sql.LazyRow) (sql.RowIter, error) {
 	table, ok, err := n.Db.GetTableInsensitive(ctx, getTableName(n.Table))
 	if err != nil {
 		return nil, err
@@ -469,7 +469,7 @@ func (b *BaseBuilder) buildAlterDefaultDrop(ctx *sql.Context, n *plan.AlterDefau
 	return rowIterWithOkResultWithZeroRowsAffected(), alterable.ModifyColumn(ctx, n.ColumnName, newCol, nil)
 }
 
-func (b *BaseBuilder) buildDropView(ctx *sql.Context, n *plan.DropView, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDropView(ctx *sql.Context, n *plan.DropView, row sql.LazyRow) (sql.RowIter, error) {
 	for _, child := range n.Children() {
 		drop, ok := child.(*plan.SingleDropView)
 		if !ok {
@@ -496,7 +496,7 @@ func (b *BaseBuilder) buildDropView(ctx *sql.Context, n *plan.DropView, row sql.
 	return sql.RowsToRowIter(), nil
 }
 
-func (b *BaseBuilder) buildAlterUser(ctx *sql.Context, a *plan.AlterUser, _ sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildAlterUser(ctx *sql.Context, a *plan.AlterUser, _ sql.LazyRow) (sql.RowIter, error) {
 	mysqlDb, ok := a.MySQLDb.(*mysql_db.MySQLDb)
 	if !ok {
 		return nil, sql.ErrDatabaseNotFound.New("mysql")
@@ -546,7 +546,7 @@ func (b *BaseBuilder) buildAlterUser(ctx *sql.Context, a *plan.AlterUser, _ sql.
 	return sql.RowsToRowIter(sql.Row{types.NewOkResult(0)}), nil
 }
 
-func (b *BaseBuilder) buildCreateUser(ctx *sql.Context, n *plan.CreateUser, _ sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildCreateUser(ctx *sql.Context, n *plan.CreateUser, _ sql.LazyRow) (sql.RowIter, error) {
 	mysqlDb, ok := n.MySQLDb.(*mysql_db.MySQLDb)
 	if !ok {
 		return nil, sql.ErrDatabaseNotFound.New("mysql")
@@ -614,7 +614,7 @@ func (b *BaseBuilder) buildCreateUser(ctx *sql.Context, n *plan.CreateUser, _ sq
 	return rowIterWithOkResultWithZeroRowsAffected(), nil
 }
 
-func (b *BaseBuilder) buildAlterPK(ctx *sql.Context, n *plan.AlterPK, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildAlterPK(ctx *sql.Context, n *plan.AlterPK, row sql.LazyRow) (sql.RowIter, error) {
 	// We need to get the current table from the database because this statement could be one clause in an alter table
 	// statement and the table may have changed since the analysis phase
 	table, err := getTableFromDatabase(ctx, n.Database(), n.Table)
@@ -660,7 +660,7 @@ func (b *BaseBuilder) buildAlterPK(ctx *sql.Context, n *plan.AlterPK, row sql.Ro
 	}
 }
 
-func (b *BaseBuilder) buildDropIndex(ctx *sql.Context, n *plan.DropIndex, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDropIndex(ctx *sql.Context, n *plan.DropIndex, row sql.LazyRow) (sql.RowIter, error) {
 	db, err := n.Catalog.Database(ctx, n.CurrentDatabase)
 	if err != nil {
 		return nil, err
@@ -722,7 +722,7 @@ func (b *BaseBuilder) buildDropIndex(ctx *sql.Context, n *plan.DropIndex, row sq
 	return sql.RowsToRowIter(), nil
 }
 
-func (b *BaseBuilder) buildDropProcedure(ctx *sql.Context, n *plan.DropProcedure, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDropProcedure(ctx *sql.Context, n *plan.DropProcedure, row sql.LazyRow) (sql.RowIter, error) {
 	procDb, ok := n.Db.(sql.StoredProcedureDatabase)
 	if !ok {
 		if n.IfExists {
@@ -740,7 +740,7 @@ func (b *BaseBuilder) buildDropProcedure(ctx *sql.Context, n *plan.DropProcedure
 	return rowIterWithOkResultWithZeroRowsAffected(), nil
 }
 
-func (b *BaseBuilder) buildDropDB(ctx *sql.Context, n *plan.DropDB, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDropDB(ctx *sql.Context, n *plan.DropDB, row sql.LazyRow) (sql.RowIter, error) {
 	exists := n.Catalog.HasDatabase(ctx, n.DbName)
 	if !exists {
 		if n.IfExists && ctx != nil && ctx.Session != nil {
@@ -778,7 +778,7 @@ func (b *BaseBuilder) buildDropDB(ctx *sql.Context, n *plan.DropDB, row sql.Row)
 	return sql.RowsToRowIter(rows...), nil
 }
 
-func (b *BaseBuilder) buildRenameColumn(ctx *sql.Context, n *plan.RenameColumn, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildRenameColumn(ctx *sql.Context, n *plan.RenameColumn, row sql.LazyRow) (sql.RowIter, error) {
 	tbl, err := getTableFromDatabase(ctx, n.Database(), n.Table)
 	if err != nil {
 		return nil, err
@@ -823,7 +823,7 @@ func (b *BaseBuilder) buildRenameColumn(ctx *sql.Context, n *plan.RenameColumn, 
 	return rowIterWithOkResultWithZeroRowsAffected(), alterable.ModifyColumn(ctx, n.ColumnName, col, nil)
 }
 
-func (b *BaseBuilder) buildAddColumn(ctx *sql.Context, n *plan.AddColumn, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildAddColumn(ctx *sql.Context, n *plan.AddColumn, row sql.LazyRow) (sql.RowIter, error) {
 	table, err := getTableFromDatabase(ctx, n.Database(), n.Table)
 	if err != nil {
 		return nil, err
@@ -872,7 +872,7 @@ func (b *BaseBuilder) buildAddColumn(ctx *sql.Context, n *plan.AddColumn, row sq
 	}, nil
 }
 
-func (b *BaseBuilder) buildAlterDB(ctx *sql.Context, n *plan.AlterDB, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildAlterDB(ctx *sql.Context, n *plan.AlterDB, row sql.LazyRow) (sql.RowIter, error) {
 	dbName := n.Database(ctx)
 
 	if !n.Catalog.HasDatabase(ctx, dbName) {
@@ -899,7 +899,7 @@ func (b *BaseBuilder) buildAlterDB(ctx *sql.Context, n *plan.AlterDB, row sql.Ro
 	return sql.RowsToRowIter(rows...), nil
 }
 
-func (b *BaseBuilder) buildCreateTable(ctx *sql.Context, n *plan.CreateTable, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildCreateTable(ctx *sql.Context, n *plan.CreateTable, row sql.LazyRow) (sql.RowIter, error) {
 	var err error
 
 	// If it's set to Invalid, then no collation has been explicitly defined
@@ -1116,7 +1116,7 @@ func createIndexesForCreateTable(ctx *sql.Context, db sql.Database, tableNode sq
 	return nil
 }
 
-func (b *BaseBuilder) buildCreateProcedure(ctx *sql.Context, n *plan.CreateProcedure, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildCreateProcedure(ctx *sql.Context, n *plan.CreateProcedure, row sql.LazyRow) (sql.RowIter, error) {
 	sqlMode := sql.LoadSqlMode(ctx)
 	return &createProcedureIter{
 		spd: sql.StoredProcedureDetails{
@@ -1130,7 +1130,7 @@ func (b *BaseBuilder) buildCreateProcedure(ctx *sql.Context, n *plan.CreateProce
 	}, nil
 }
 
-func (b *BaseBuilder) buildCreateTrigger(ctx *sql.Context, n *plan.CreateTrigger, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildCreateTrigger(ctx *sql.Context, n *plan.CreateTrigger, row sql.LazyRow) (sql.RowIter, error) {
 	sqlMode := sql.LoadSqlMode(ctx)
 	return &createTriggerIter{
 		definition: sql.TriggerDefinition{
@@ -1143,7 +1143,7 @@ func (b *BaseBuilder) buildCreateTrigger(ctx *sql.Context, n *plan.CreateTrigger
 	}, nil
 }
 
-func (b *BaseBuilder) buildDropColumn(ctx *sql.Context, n *plan.DropColumn, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildDropColumn(ctx *sql.Context, n *plan.DropColumn, row sql.LazyRow) (sql.RowIter, error) {
 	tbl, err := getTableFromDatabase(ctx, n.Database(), n.Table)
 	if err != nil {
 		return nil, err
@@ -1165,7 +1165,7 @@ func (b *BaseBuilder) buildDropColumn(ctx *sql.Context, n *plan.DropColumn, row 
 	}, nil
 }
 
-func (b *BaseBuilder) buildAlterTableCollation(ctx *sql.Context, n *plan.AlterTableCollation, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildAlterTableCollation(ctx *sql.Context, n *plan.AlterTableCollation, row sql.LazyRow) (sql.RowIter, error) {
 	tbl, err := getTableFromDatabase(ctx, n.Database(), n.Table)
 	if err != nil {
 		return nil, err
@@ -1179,7 +1179,7 @@ func (b *BaseBuilder) buildAlterTableCollation(ctx *sql.Context, n *plan.AlterTa
 	return rowIterWithOkResultWithZeroRowsAffected(), alterable.ModifyDefaultCollation(ctx, n.Collation)
 }
 
-func (b *BaseBuilder) buildCreateForeignKey(ctx *sql.Context, n *plan.CreateForeignKey, row sql.Row) (sql.RowIter, error) {
+func (b *BaseBuilder) buildCreateForeignKey(ctx *sql.Context, n *plan.CreateForeignKey, row sql.LazyRow) (sql.RowIter, error) {
 	if n.FkDef.OnUpdate == sql.ForeignKeyReferentialAction_SetDefault || n.FkDef.OnDelete == sql.ForeignKeyReferentialAction_SetDefault {
 		return nil, sql.ErrForeignKeySetDefault.New()
 	}

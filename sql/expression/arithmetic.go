@@ -271,7 +271,7 @@ func (a *Arithmetic) WithChildren(children ...sql.Expression) (sql.Expression, e
 }
 
 // Eval implements the Expression interface.
-func (a *Arithmetic) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (a *Arithmetic) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	lval, rval, err := a.evalLeftRight(ctx, row)
 	if err != nil {
 		return nil, err
@@ -314,7 +314,7 @@ func (a *Arithmetic) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	return result, nil
 }
 
-func (a *Arithmetic) evalLeftRight(ctx *sql.Context, row sql.Row) (interface{}, interface{}, error) {
+func (a *Arithmetic) evalLeftRight(ctx *sql.Context, row sql.LazyRow) (interface{}, interface{}, error) {
 	var lval, rval interface{}
 	var err error
 
@@ -679,7 +679,7 @@ func NewUnaryMinus(child sql.Expression) *UnaryMinus {
 }
 
 // Eval implements the sql.Expression interface.
-func (e *UnaryMinus) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (e *UnaryMinus) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	child, err := e.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err

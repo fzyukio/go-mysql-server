@@ -153,7 +153,7 @@ func (idx *Index) rowToIndexStorage(row sql.Row, partitionName string, rowIdx in
 	newRow := make(sql.Row, len(exprs)+1)
 	for i, expr := range exprs {
 		var err error
-		newRow[i], err = expr.Eval(nil, row)
+		newRow[i], err = expr.Eval(nil, sql.NewSqlRowFromRow(row))
 		if err != nil {
 			return nil, err
 		}

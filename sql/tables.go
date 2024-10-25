@@ -284,7 +284,7 @@ type RowInserter interface {
 	// Insert inserts the row given, returning an error if it cannot. Insert will be called once for each row to process
 	// for the insert operation, which may involve many rows. After all rows in an operation have been processed, Close
 	// is called.
-	Insert(*Context, Row) error
+	Insert(*Context, LazyRow) error
 	// Close finalizes the insert operation, persisting its result.
 	Closer
 }
@@ -303,7 +303,7 @@ type RowDeleter interface {
 	// Delete deletes the given row. Returns ErrDeleteRowNotFound if the row was not found. Delete will be called once for
 	// each row to process for the delete operation, which may involve many rows. After all rows have been processed,
 	// Close is called.
-	Delete(*Context, Row) error
+	Delete(*Context, LazyRow) error
 	// Closer finalizes the delete operation, persisting the result.
 	Closer
 }
@@ -375,7 +375,7 @@ type UpdatableTable interface {
 type RowUpdater interface {
 	EditOpenerCloser
 	// Update the given row. Provides both the old and new rows.
-	Update(ctx *Context, old Row, new Row) error
+	Update(ctx *Context, old LazyRow, new LazyRow) error
 	// Closer finalizes the update operation, persisting the result.
 	Closer
 }

@@ -74,7 +74,7 @@ func (l *LineString) WithChildren(children ...sql.Expression) (sql.Expression, e
 }
 
 // Eval implements the sql.Expression interface.
-func (l *LineString) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (l *LineString) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	// Allocate array of points
 	var points = make([]types.Point, len(l.ChildExpressions))
 

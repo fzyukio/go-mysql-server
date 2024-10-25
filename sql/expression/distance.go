@@ -85,7 +85,7 @@ func (d Distance) WithChildren(children ...sql.Expression) (sql.Expression, erro
 }
 
 // Eval implements the Expression interface.
-func (d Distance) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (d Distance) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	lval, err := d.LeftChild.Eval(ctx, row)
 	if err != nil {
 		return nil, err

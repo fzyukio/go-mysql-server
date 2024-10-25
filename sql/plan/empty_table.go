@@ -90,7 +90,7 @@ func (*EmptyTable) IsReadOnly() bool     { return true }
 func (e *EmptyTable) String() string     { return "EmptyTable" }
 
 // RowIter implements the sql.Node interface.
-func (*EmptyTable) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (*EmptyTable) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	return sql.RowsToRowIter(), nil
 }
 
@@ -156,7 +156,7 @@ func (e *emptyTableUpdater) StatementComplete(_ *sql.Context) error {
 }
 
 // Update implements the sql.RowUpdater interface
-func (e *emptyTableUpdater) Update(_ *sql.Context, _ sql.Row, _ sql.Row) error {
+func (e *emptyTableUpdater) Update(ctx *sql.Context, old sql.LazyRow, new sql.LazyRow) error {
 	return nil
 }
 
@@ -170,8 +170,8 @@ type emptyTableIter struct{}
 var _ sql.RowIter = (*emptyTableIter)(nil)
 
 // Next implements the sql.RowIter interface.
-func (e *emptyTableIter) Next(_ *sql.Context) (sql.Row, error) {
-	return nil, io.EOF
+func (e *emptyTableIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	return io.EOF
 }
 
 // Close implements the sql.RowIter interface.
@@ -207,7 +207,7 @@ func (e *emptyTableDeleter) StatementComplete(_ *sql.Context) error {
 	return nil
 }
 
-func (e *emptyTableDeleter) Delete(_ *sql.Context, _ sql.Row) error {
+func (e *emptyTableDeleter) Delete(_ *sql.Context, _ sql.LazyRow) error {
 	return nil
 }
 

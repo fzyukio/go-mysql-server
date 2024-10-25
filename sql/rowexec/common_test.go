@@ -111,7 +111,7 @@ func assertRows(t *testing.T, ctx *sql.Context, iter sql.RowIter, expected int64
 
 	var rows int64
 	for {
-		_, err := iter.Next(ctx)
+		err := iter.Next(ctx, nil)
 		if err == io.EOF {
 			break
 		}
@@ -134,7 +134,7 @@ func collectRows(t *testing.T, ctx *sql.Context, node sql.Node) []sql.Row {
 
 	var rows []sql.Row
 	for {
-		row, err := iter.Next(ctx)
+		err := iter.Next(ctx, nil)
 		if err == io.EOF {
 			return rows
 		}

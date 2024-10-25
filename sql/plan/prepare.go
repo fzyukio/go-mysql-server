@@ -54,7 +54,7 @@ func (pi PrepareInfo) String() string {
 }
 
 // RowIter implements the Node interface.
-func (p *PrepareQuery) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (p *PrepareQuery) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	return sql.RowsToRowIter(sql.NewRow(types.OkResult{RowsAffected: 0, Info: PrepareInfo{}})), nil
 }
 
@@ -109,7 +109,7 @@ func (p *ExecuteQuery) Schema() sql.Schema {
 }
 
 // RowIter implements the Node interface.
-func (p *ExecuteQuery) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (p *ExecuteQuery) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	panic("ExecuteQuery methods shouldn't be used")
 }
 
@@ -164,7 +164,7 @@ func (p *DeallocateQuery) Schema() sql.Schema {
 }
 
 // RowIter implements the Node interface.
-func (p *DeallocateQuery) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (p *DeallocateQuery) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	return sql.RowsToRowIter(sql.NewRow(types.OkResult{})), nil
 }
 

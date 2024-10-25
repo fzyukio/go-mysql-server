@@ -72,7 +72,7 @@ func (j JSONReplace) IsNullable() bool {
 	return j.doc.IsNullable()
 }
 
-func (j JSONReplace) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (j JSONReplace) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	doc, err := getMutableJSONVal(ctx, row, j.doc)
 	if err != nil || doc == nil {
 		return nil, getJsonFunctionError("json_replace", 1, err)

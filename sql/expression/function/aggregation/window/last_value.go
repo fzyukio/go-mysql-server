@@ -109,7 +109,7 @@ func (f *LastValue) IsNullable() bool {
 }
 
 // Eval implements sql.Expression
-func (f *LastValue) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (f *LastValue) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	return nil, sql.ErrWindowUnsupported.New(f.FunctionName())
 }
 

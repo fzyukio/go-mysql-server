@@ -180,7 +180,7 @@ func (n *ForeignKeyHandler) StatementComplete(ctx *sql.Context) error {
 }
 
 // Insert implements the interface sql.RowInserter.
-func (n *ForeignKeyHandler) Insert(ctx *sql.Context, row sql.Row) error {
+func (n *ForeignKeyHandler) Insert(ctx *sql.Context, row sql.LazyRow) error {
 	for _, reference := range n.Editor.References {
 		if err := reference.CheckReference(ctx, row); err != nil {
 			return err
@@ -190,12 +190,12 @@ func (n *ForeignKeyHandler) Insert(ctx *sql.Context, row sql.Row) error {
 }
 
 // Update implements the interface sql.RowUpdater.
-func (n *ForeignKeyHandler) Update(ctx *sql.Context, old sql.Row, new sql.Row) error {
+func (n *ForeignKeyHandler) Update(ctx *sql.Context, old sql.LazyRow, new sql.LazyRow) error {
 	return n.Editor.Update(ctx, old, new, 1)
 }
 
 // Delete implements the interface sql.RowDeleter.
-func (n *ForeignKeyHandler) Delete(ctx *sql.Context, row sql.Row) error {
+func (n *ForeignKeyHandler) Delete(ctx *sql.Context, row sql.LazyRow) error {
 	return n.Editor.Delete(ctx, row, 1)
 }
 

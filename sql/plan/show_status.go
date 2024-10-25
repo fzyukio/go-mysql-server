@@ -81,7 +81,7 @@ func (s *ShowStatus) Children() []sql.Node {
 }
 
 // RowIter implements sql.Node interface.
-func (s *ShowStatus) RowIter(ctx *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (s *ShowStatus) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	// Session scope has visibility into both GLOBAL and SESSION variables.
 	// Global scope has visibility only into GLOBAL variables.
 	vars := sql.StatusVariables.NewGlobalMap()

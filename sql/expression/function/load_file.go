@@ -69,7 +69,7 @@ func (l *LoadFile) IsNullable() bool {
 
 // TODO: Allow FILE privileges for GRANT
 // Eval implements sql.Expression.
-func (l *LoadFile) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (l *LoadFile) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	dir, err := ctx.Session.GetSessionVariable(ctx, "secure_file_priv")
 	if err != nil {
 		return "", err
@@ -112,7 +112,7 @@ func (l *LoadFile) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 
 // getFile returns the file handler for the passed in filename. The file must be in the secure_file_priv
 // directory.
-func (l *LoadFile) getFile(ctx *sql.Context, row sql.Row, secureFileDir string) (*os.File, error) {
+func (l *LoadFile) getFile(ctx *sql.Context, row sql.LazyRow, secureFileDir string) (*os.File, error) {
 	fileName, err := l.fileName.Eval(ctx, row)
 	if err != nil {
 		return nil, err

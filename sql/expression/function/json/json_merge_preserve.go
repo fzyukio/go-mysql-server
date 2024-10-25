@@ -115,7 +115,7 @@ func (j *JSONMergePreserve) IsNullable() bool {
 }
 
 // Eval implements the Expression interface.
-func (j *JSONMergePreserve) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (j *JSONMergePreserve) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	initDoc, err := getJSONDocumentFromRow(ctx, row, j.JSONs[0])
 	if err != nil {
 		return nil, getJsonFunctionError("json_merge_preserve", 1, err)

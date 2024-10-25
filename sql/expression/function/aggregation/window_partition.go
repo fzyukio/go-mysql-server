@@ -124,37 +124,37 @@ func (i *WindowPartitionIter) Dispose() {
 	}
 }
 
-func (i *WindowPartitionIter) Next(ctx *sql.Context) (sql.Row, error) {
+func (i *WindowPartitionIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	var err error
 	if i.output == nil {
 		i.input, i.outputOrdering, err = i.materializeInput(ctx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		i.partitions, err = i.initializePartitions(ctx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		i.output, err = i.materializeOutput(ctx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		err = i.sortAndFilterOutput()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	if i.pos > len(i.output)-1 {
-		return nil, io.EOF
+		return io.EOF
 	}
 
 	defer func() { i.pos++ }()
 
-	return i.output[i.pos], nil
+	return nil
 }
 
 // materializeInput empties the child iterator into a buffer and sorts by (WPK, WSK). Returns
@@ -163,14 +163,16 @@ func (i *WindowPartitionIter) materializeInput(ctx *sql.Context) (sql.WindowBuff
 	input := make(sql.WindowBuffer, 0)
 	j := 0
 	for {
-		row, err := i.child.Next(ctx)
+		row := sql.NewSqlRow(0)
+		err := i.child.Next(ctx, nil)
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
 			return nil, nil, err
 		}
-		input = append(input, append(row, j))
+		row.SetSqlValue(-1, j)
+		input = append(input, row)
 		j++
 	}
 
@@ -189,9 +191,9 @@ func (i *WindowPartitionIter) materializeInput(ctx *sql.Context) (sql.WindowBuff
 	// maintain output sort ordering
 	// TODO: push sort above aggregation, makes this code unnecessarily complex
 	outputOrdering := make([]int, len(input))
-	outputIdx := len(input[0]) - 1
+	outputIdx := input[0].Count() - 1
 	for k, row := range input {
-		outputOrdering[k], input[k] = row[outputIdx].(int), row[:outputIdx]
+		outputOrdering[k], input[k] = row.SqlValue(outputIdx).(int), row.SelectRange(0, outputIdx)
 	}
 
 	return input, outputOrdering, nil
@@ -209,7 +211,7 @@ func (i *WindowPartitionIter) initializePartitions(ctx *sql.Context) ([]sql.Wind
 
 	partitions := make([]sql.WindowInterval, 0)
 	startIdx := 0
-	var lastRow sql.Row
+	var lastRow sql.LazyRow
 	for j, row := range i.input {
 		newPart, err := isNewPartition(ctx, i.w.PartitionBy, lastRow, row)
 		if err != nil {
@@ -240,10 +242,10 @@ func (i *WindowPartitionIter) materializeOutput(ctx *sql.Context) (sql.WindowBuf
 	}
 
 	output := make(sql.WindowBuffer, 0, len(i.input))
-	var row sql.Row
 	var err error
 	for {
-		row, err = i.compute(ctx)
+		row := sql.NewSqlRow(len(i.w.Aggs) + 1)
+		err = i.compute(ctx, row)
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
@@ -257,9 +259,7 @@ func (i *WindowPartitionIter) materializeOutput(ctx *sql.Context) (sql.WindowBuf
 
 // compute evaluates each function in [i.Aggs], returning the result as an sql.Row with
 // the outputOrdering index appended, or an io.EOF error if we are finished iterating.
-func (i *WindowPartitionIter) compute(ctx *sql.Context) (sql.Row, error) {
-	var row = make(sql.Row, len(i.w.Aggs)+1)
-
+func (i *WindowPartitionIter) compute(ctx *sql.Context, row sql.LazyRow) error {
 	// each [agg] has its own [agg.framer] that is globally positioned
 	// but updated independently. This allows aggregations with the same
 	// partition and sorting to have different framing behavior.
@@ -268,23 +268,23 @@ func (i *WindowPartitionIter) compute(ctx *sql.Context) (sql.Row, error) {
 		if errors.Is(err, io.EOF) {
 			err = i.nextPartition(ctx)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			interval, err = agg.framer.Next(ctx, i.input)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
-		row[j] = agg.fn.Compute(ctx, interval, i.input)
+		row.SetSqlValue(j, agg.fn.Compute(ctx, interval, i.input))
 	}
 
 	// TODO: move sort by above aggregation
 	if len(i.outputOrdering) > 0 {
-		row[len(i.w.Aggs)] = i.outputOrdering[i.outputOrderingPos]
+		row.SetSqlValue(len(i.w.Aggs), i.outputOrdering[i.outputOrderingPos])
 	}
 
 	i.outputOrderingPos++
-	return row, nil
+	return nil
 }
 
 // sortAndFilterOutput in-place sorts the [i.output] buffer using the last
@@ -297,13 +297,13 @@ func (i *WindowPartitionIter) sortAndFilterOutput() error {
 		return nil
 	}
 
-	originalOrderIdx := len(i.output[0]) - 1
+	originalOrderIdx := i.output[0].Count() - 1
 	sort.SliceStable(i.output, func(j, k int) bool {
-		return i.output[j][originalOrderIdx].(int) < i.output[k][originalOrderIdx].(int)
+		return i.output[j].SqlValue(originalOrderIdx).(int) < i.output[k].SqlValue(originalOrderIdx).(int)
 	})
 
 	for j, row := range i.output {
-		i.output[j] = row[:originalOrderIdx]
+		i.output[j] = row.SelectRange(0, originalOrderIdx)
 	}
 
 	return nil
@@ -349,8 +349,8 @@ func partitionsToSortFields(partitionExprs []sql.Expression) sql.SortFields {
 	return sfs
 }
 
-func isNewPartition(ctx *sql.Context, partitionBy []sql.Expression, last sql.Row, row sql.Row) (bool, error) {
-	if len(last) == 0 {
+func isNewPartition(ctx *sql.Context, partitionBy []sql.Expression, last, row sql.LazyRow) (bool, error) {
+	if last.Count() == 0 {
 		return true, nil
 	}
 

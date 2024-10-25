@@ -68,7 +68,7 @@ func NewGetFieldWithTable(index, tableId int, fieldType sql.Type, db, table, fie
 }
 
 // Index returns the index where the GetField will look for the value from a sql.Row.
-func (p *GetField) Index() int { return p.fieldIndex }
+func (p *GetField) Index() int { return p.fieldIndex - 1 }
 
 func (p *GetField) Id() sql.ColumnId { return p.exprId }
 
@@ -137,11 +137,11 @@ func (p *GetField) Type2() sql.Type2 {
 var ErrIndexOutOfBounds = errors.NewKind("unable to find field with index %d in row of %d columns")
 
 // Eval implements the Expression interface.
-func (p *GetField) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	if p.fieldIndex < 0 || p.fieldIndex >= len(row) {
-		return nil, ErrIndexOutOfBounds.New(p.fieldIndex, len(row))
+func (p *GetField) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
+	if p.fieldIndex < 0 || p.fieldIndex >= row.Count() {
+		return nil, ErrIndexOutOfBounds.New(p.fieldIndex, row.Count())
 	}
-	return row[p.fieldIndex], nil
+	return row.SqlValue(p.fieldIndex), nil
 }
 
 func (p *GetField) Eval2(ctx *sql.Context, row sql.Row2) (sql.Value, error) {

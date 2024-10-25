@@ -106,7 +106,7 @@ func (*ExternalProcedure) CollationCoercibility(ctx *sql.Context) (collation sql
 }
 
 // RowIter implements the interface sql.Node.
-func (n *ExternalProcedure) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (n *ExternalProcedure) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	// The function's structure has been verified by the analyzer, so no need to double-check any of it here
 	funcVal := reflect.ValueOf(n.Function)
 	funcType := funcVal.Type()

@@ -46,10 +46,7 @@ func (l *Lower) Description() string {
 }
 
 // Eval implements the Expression interface.
-func (l *Lower) Eval(
-	ctx *sql.Context,
-	row sql.Row,
-) (interface{}, error) {
+func (l *Lower) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	v, err := l.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -112,10 +109,7 @@ func (u *Upper) Description() string {
 }
 
 // Eval implements the Expression interface.
-func (u *Upper) Eval(
-	ctx *sql.Context,
-	row sql.Row,
-) (interface{}, error) {
+func (u *Upper) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	v, err := u.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err

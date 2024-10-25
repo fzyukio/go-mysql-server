@@ -1306,11 +1306,11 @@ func schemaPrivilegesRowIter(ctx *Context, c Catalog) (RowIter, error) {
 		}
 
 		var keys []mysql_db.UserPrimaryKey
-		err = iterRows(ctx, dbTbl, func(r Row) error {
+		err = iterRows(ctx, dbTbl, func(r LazyRow) error {
 			// mysql.db table will have 'Host', 'Db', 'User' as first 3 columns in string format.
 			keys = append(keys, mysql_db.UserPrimaryKey{
-				Host: r[0].(string),
-				User: r[2].(string),
+				Host: r.SqlValue(0).(string),
+				User: r.SqlValue(2).(string),
 			})
 			return nil
 		})
@@ -1728,7 +1728,7 @@ type partitionIterable interface {
 	PartitionRows(*Context, Partition) (RowIter, error)
 }
 
-func iterRows(ctx *Context, pii partitionIterable, cb func(Row) error) (rerr error) {
+func iterRows(ctx *Context, pii partitionIterable, cb func(LazyRow) error) (rerr error) {
 	pi, err := pii.Partitions(ctx)
 	if err != nil {
 		return err
@@ -1752,7 +1752,8 @@ func iterRows(ctx *Context, pii partitionIterable, cb func(Row) error) (rerr err
 			return err
 		}
 		for {
-			r, err := ri.Next(ctx)
+			r := NewSqlRow(0)
+			err := ri.Next(ctx, r)
 			if err == io.EOF {
 				ri.Close(ctx)
 				break
@@ -1794,10 +1795,10 @@ func tablePrivilegesRowIter(ctx *Context, c Catalog) (RowIter, error) {
 		}
 
 		var keys []mysql_db.UserPrimaryKey
-		err = iterRows(ctx, tblsPriv, func(r Row) error {
+		err = iterRows(ctx, tblsPriv, func(r LazyRow) error {
 			keys = append(keys, mysql_db.UserPrimaryKey{
-				Host: r[0].(string),
-				User: r[2].(string),
+				Host: r.SqlValue(0).(string),
+				User: r.SqlValue(2).(string),
 			})
 			return nil
 		})

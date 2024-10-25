@@ -102,7 +102,7 @@ func depth(obj interface{}) (int, error) {
 }
 
 // Eval implements sql.Expression interface.
-func (j *JSONDepth) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (j *JSONDepth) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	span, ctx := ctx.Span(fmt.Sprintf("function.%s", j.FunctionName()))
 	defer span.End()
 

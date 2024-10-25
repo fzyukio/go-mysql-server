@@ -85,6 +85,6 @@ func (*DeclareCondition) CollationCoercibility(ctx *sql.Context) (collation sql.
 }
 
 // RowIter implements the sql.Node interface.
-func (d *DeclareCondition) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
+func (d *DeclareCondition) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	return sql.RowsToRowIter(), nil
 }

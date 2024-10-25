@@ -50,7 +50,7 @@ func (tc *TableCopier) Database() sql.Database {
 	return tc.db
 }
 
-func (tc *TableCopier) ProcessCreateTable(ctx *sql.Context, b sql.NodeExecBuilder, row sql.Row) (sql.RowIter, error) {
+func (tc *TableCopier) ProcessCreateTable(ctx *sql.Context, b sql.NodeExecBuilder, row sql.LazyRow) (sql.RowIter, error) {
 	ct := tc.Destination.(*CreateTable)
 
 	_, err := b.Build(ctx, ct, row)

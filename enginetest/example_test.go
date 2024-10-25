@@ -41,7 +41,7 @@ func Example() {
 
 	// Iterate results and print them.
 	for {
-		row, err := r.Next(ctx)
+		err := r.Next(ctx, nil)
 		if err == io.EOF {
 			break
 		}

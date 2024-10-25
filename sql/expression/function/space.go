@@ -42,7 +42,7 @@ func (s *Space) CollationCoercibility(ctx *sql.Context) (collation sql.Collation
 }
 
 // Eval implements the sql.Expression interface
-func (s *Space) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+func (s *Space) Eval(ctx *sql.Context, row sql.LazyRow) (interface{}, error) {
 	val, err := s.EvalChild(ctx, row)
 	if err != nil {
 		return nil, err

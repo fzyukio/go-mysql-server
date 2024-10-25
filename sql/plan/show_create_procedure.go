@@ -75,7 +75,7 @@ func (s *ShowCreateProcedure) Schema() sql.Schema {
 }
 
 // RowIter implements the sql.Node interface.
-func (s *ShowCreateProcedure) RowIter(ctx *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (s *ShowCreateProcedure) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	characterSetClient, err := ctx.GetSessionVariable(ctx, "character_set_client")
 	if err != nil {
 		return nil, err

@@ -590,23 +590,23 @@ func (i *spanIter) updateTimings(start time.Time) {
 	i.total += elapsed
 }
 
-func (i *spanIter) Next(ctx *Context) (Row, error) {
+func (i *spanIter) Next(ctx *Context, row LazyRow) error {
 	start := time.Now()
 
-	row, err := i.iter.Next(ctx)
+	err := i.iter.Next(ctx, nil)
 	if err == io.EOF {
 		i.finish()
-		return nil, err
+		return err
 	}
 
 	if err != nil {
 		i.finishWithError(err)
-		return nil, err
+		return err
 	}
 
 	i.count++
 	i.updateTimings(start)
-	return row, nil
+	return nil
 }
 
 func (i *spanIter) finish() {

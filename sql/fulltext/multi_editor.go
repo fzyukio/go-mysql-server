@@ -92,7 +92,7 @@ func (editor MultiTableEditor) StatementComplete(ctx *sql.Context) error {
 }
 
 // Insert implements the interface sql.TableEditor.
-func (editor MultiTableEditor) Insert(ctx *sql.Context, row sql.Row) error {
+func (editor MultiTableEditor) Insert(ctx *sql.Context, row sql.LazyRow) error {
 	for _, secondary := range editor.secondaries {
 		if err := secondary.Insert(ctx, row); err != nil {
 			return err
@@ -102,7 +102,7 @@ func (editor MultiTableEditor) Insert(ctx *sql.Context, row sql.Row) error {
 }
 
 // Update implements the interface sql.TableEditor.
-func (editor MultiTableEditor) Update(ctx *sql.Context, old sql.Row, new sql.Row) error {
+func (editor MultiTableEditor) Update(ctx *sql.Context, old sql.LazyRow, new sql.LazyRow) error {
 	for _, secondary := range editor.secondaries {
 		if err := secondary.Update(ctx, old, new); err != nil {
 			return err
@@ -112,7 +112,7 @@ func (editor MultiTableEditor) Update(ctx *sql.Context, old sql.Row, new sql.Row
 }
 
 // Delete implements the interface sql.TableEditor.
-func (editor MultiTableEditor) Delete(ctx *sql.Context, row sql.Row) error {
+func (editor MultiTableEditor) Delete(ctx *sql.Context, row sql.LazyRow) error {
 	for _, secondary := range editor.secondaries {
 		if err := secondary.Delete(ctx, row); err != nil {
 			return err

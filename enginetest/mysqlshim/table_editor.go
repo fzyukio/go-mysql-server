@@ -65,7 +65,7 @@ func (t *tableEditor) StatementComplete(ctx *sql.Context) error {
 }
 
 // Insert implements the interface sql.RowInserter.
-func (t *tableEditor) Insert(ctx *sql.Context, row sql.Row) error {
+func (t *tableEditor) Insert(ctx *sql.Context, row sql.LazyRow) error {
 	sb := strings.Builder{}
 	for i, val := range row {
 		if i != 0 {
@@ -77,7 +77,7 @@ func (t *tableEditor) Insert(ctx *sql.Context, row sql.Row) error {
 }
 
 // Update implements the interface sql.RowUpdater.
-func (t *tableEditor) Update(ctx *sql.Context, old sql.Row, new sql.Row) error {
+func (t *tableEditor) Update(ctx *sql.Context, old sql.LazyRow, new sql.LazyRow) error {
 	err := t.Delete(ctx, old)
 	if err != nil {
 		return err
@@ -86,7 +86,7 @@ func (t *tableEditor) Update(ctx *sql.Context, old sql.Row, new sql.Row) error {
 }
 
 // Delete implements the interface sql.RowDeleter.
-func (t *tableEditor) Delete(ctx *sql.Context, row sql.Row) error {
+func (t *tableEditor) Delete(ctx *sql.Context, row sql.LazyRow) error {
 	if len(row) != len(t.sch) {
 		return fmt.Errorf("expected `%d` values but got `%d` for DELETE", len(t.sch), len(row))
 	}

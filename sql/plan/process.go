@@ -353,10 +353,10 @@ func (i *TrackedRowIter) Dispose() {
 	}
 }
 
-func (i *TrackedRowIter) Next(ctx *sql.Context) (sql.Row, error) {
-	row, err := i.iter.Next(ctx)
+func (i *TrackedRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
+	err := i.iter.Next(ctx, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	i.numRows++
@@ -365,7 +365,7 @@ func (i *TrackedRowIter) Next(ctx *sql.Context) (sql.Row, error) {
 		i.onNext()
 	}
 
-	return row, nil
+	return nil
 }
 
 func (i *TrackedRowIter) Close(ctx *sql.Context) error {

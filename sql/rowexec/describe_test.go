@@ -42,15 +42,15 @@ func TestDescribe(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(iter)
 
-	n, err := iter.Next(ctx)
+	err := iter.Next(ctx, nil)
 	require.NoError(err)
 	require.Equal(sql.NewRow("c1", "text"), n)
 
-	n, err = iter.Next(ctx)
+	err = iter.Next(ctx, nil)
 	require.NoError(err)
 	require.Equal(sql.NewRow("c2", "int"), n)
 
-	n, err = iter.Next(ctx)
+	err = iter.Next(ctx, nil)
 	require.Equal(io.EOF, err)
 	require.Nil(n)
 }
@@ -65,7 +65,7 @@ func TestDescribe_Empty(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(iter)
 
-	n, err := iter.Next(ctx)
+	err := iter.Next(ctx, nil)
 	require.Equal(io.EOF, err)
 	require.Nil(n)
 }
@@ -102,7 +102,7 @@ func TestDescribeQuery(t *testing.T) {
 	iter, err := DefaultBuilder.Build(ctx, node, nil)
 	require.NoError(err)
 
-	rows, err := sql.RowIterToRows(ctx, iter)
+	rows, err := sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
 
 	expected := []sql.Row{

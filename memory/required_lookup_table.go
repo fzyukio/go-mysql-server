@@ -77,7 +77,7 @@ func (s RequiredLookupTable) IndexedAccess(lookup sql.IndexLookup) sql.IndexedTa
 	return RequiredLookupTable{indexOk: true, IntSequenceTable: s.IntSequenceTable}
 }
 
-func (s RequiredLookupTable) RowIter(_ *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (s RequiredLookupTable) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	return nil, fmt.Errorf("table requires index lookup")
 }
 

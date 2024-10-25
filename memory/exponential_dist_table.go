@@ -100,7 +100,7 @@ func (s ExponentialDistTable) Children() []sql.Node {
 	return []sql.Node{}
 }
 
-func (s ExponentialDistTable) RowIter(_ *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (s ExponentialDistTable) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	return stats.NewExpDistIter(s.colCnt, s.rowCnt, s.lambda), nil
 }
 

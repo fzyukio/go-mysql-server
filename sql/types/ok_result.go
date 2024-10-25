@@ -53,9 +53,9 @@ func NewOkResult(rowsAffected int) OkResult {
 }
 
 // IsOkResult returns whether the given row represents an OkResult.
-func IsOkResult(row sql.Row) bool {
-	if len(row) == 1 {
-		if _, ok := row[0].(OkResult); ok {
+func IsOkResult(row sql.LazyRow) bool {
+	if row.Count() == 1 {
+		if _, ok := row.SqlValue(0).(OkResult); ok {
 			return true
 		}
 	}

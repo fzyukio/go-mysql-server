@@ -296,7 +296,7 @@ func (td *TableData) errIfDuplicateEntryExist(cols []string, idxName string) err
 			if hasNulls(idxPrefixKey) {
 				continue
 			}
-			h, err := sql.HashOf(idxPrefixKey)
+			h, err := sql.HashOf(sql.NewSqlRowFromRow(idxPrefixKey))
 			if err != nil {
 				return err
 			}
@@ -454,7 +454,7 @@ func insertValueInRows(ctx *sql.Context, data *TableData, colIdx int, colDefault
 			if !data.schema.Schema[colIdx].Nullable && colDefault == nil {
 				newRow[colIdx] = data.schema.Schema[colIdx].Type.Zero()
 			} else {
-				newRow[colIdx], err = colDefault.Eval(ctx, newRow)
+				newRow[colIdx], err = colDefault.Eval(ctx, sql.NewSqlRowFromRow(newRow))
 				if err != nil {
 					return err
 				}

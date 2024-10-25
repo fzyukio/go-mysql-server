@@ -111,7 +111,7 @@ func (s NormalDistTable) Children() []sql.Node {
 	return []sql.Node{}
 }
 
-func (s NormalDistTable) RowIter(_ *sql.Context, _ sql.Row) (sql.RowIter, error) {
+func (s NormalDistTable) RowIter(ctx *sql.Context, r sql.LazyRow) (sql.RowIter, error) {
 	return stats.NewNormDistIter(s.colCnt, s.rowCnt, s.mean, s.std), nil
 }
 
