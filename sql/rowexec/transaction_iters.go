@@ -75,7 +75,7 @@ type TransactionCommittingIter struct {
 }
 
 func (t *TransactionCommittingIter) Next(ctx *sql.Context, row sql.LazyRow) error {
-	return t.childIter.Next(ctx, nil)
+	return t.childIter.Next(ctx, row)
 }
 
 func (t *TransactionCommittingIter) Close(ctx *sql.Context) error {

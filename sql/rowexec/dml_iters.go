@@ -518,7 +518,7 @@ func (a *accumulatorIter) Next(ctx *sql.Context, row sql.LazyRow) (err error) {
 	}()
 
 	for {
-		err := a.iter.Next(ctx, nil)
+		err := a.iter.Next(ctx, row)
 		igErr, isIg := err.(sql.IgnorableError)
 		select {
 		case <-ctx.Done():
@@ -551,6 +551,7 @@ func (a *accumulatorIter) Next(ctx *sql.Context, row sql.LazyRow) (err error) {
 			// By definition, ROW_COUNT() is equal to RowsAffected.
 			ctx.SetLastQueryInfoInt(sql.RowCount, int64(res.RowsAffected))
 
+			row.SetSqlValue(0, res)
 			return nil
 		} else if isIg {
 			if ui, ok := a.updateRowHandler.(updateIgnoreAccumulatorRowHandler); ok {

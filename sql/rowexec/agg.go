@@ -64,7 +64,7 @@ func (i *groupByIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 
 	// if no aggregate functions other than any_value, it's just a normal select
 	if onlyAnyValue {
-		err := i.child.Next(ctx, nil)
+		err := i.child.Next(ctx, row)
 		if err != nil {
 			i.done = true
 			return err
@@ -78,7 +78,7 @@ func (i *groupByIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	i.done = true
 
 	for {
-		err := i.child.Next(ctx, nil)
+		err := i.child.Next(ctx, row)
 		if err != nil {
 			if err == io.EOF {
 				break

@@ -141,7 +141,8 @@ func (fkEditor *ForeignKeyEditor) OnUpdateRestrict(ctx *sql.Context, refActionDa
 		return err
 	}
 	defer rowIter.Close(ctx)
-	if err = rowIter.Next(ctx, nil); err == nil {
+	row := sql.NewSqlRow(0)
+	if err = rowIter.Next(ctx, row); err == nil {
 		return sql.ErrForeignKeyParentViolation.New(refActionData.ForeignKey.Name,
 			refActionData.ForeignKey.Table, refActionData.ForeignKey.ParentTable, refActionData.RowMapper.GetKeyString(old))
 	}
@@ -447,6 +448,9 @@ func (reference *ForeignKeyReferenceHandler) CheckTable(ctx *sql.Context, tbl sq
 	for {
 		row := sql.NewSqlRow(0)
 		err := rowIter.Next(ctx, row)
+		if err == io.EOF {
+			break
+		}
 		err = reference.CheckReference(ctx, row)
 		if err != nil {
 			return err

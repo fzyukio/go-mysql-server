@@ -518,7 +518,7 @@ func (b *BaseBuilder) populateMax1Results(ctx *sql.Context, n *plan.Max1Row, row
 		return err
 	}
 
-	err = i.Next(ctx, nil)
+	err = i.Next(ctx, row)
 	if err == nil {
 		return sql.ErrExpectedSingleRow.New()
 	} else if !errors.Is(err, io.EOF) {

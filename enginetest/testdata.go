@@ -179,7 +179,7 @@ func InsertRows(t *testing.T, ctx *sql.Context, table sql.InsertableTable, rows 
 
 	inserter := table.Inserter(ctx)
 	for _, r := range rows {
-		require.NoError(t, inserter.Insert(ctx, r))
+		require.NoError(t, inserter.Insert(ctx, sql.NewSqlRowFromRow(r)))
 	}
 	err := inserter.Close(ctx)
 	require.NoError(t, err)
@@ -198,7 +198,7 @@ func DeleteRows(t *testing.T, ctx *sql.Context, table sql.DeletableTable, rows .
 
 	deleter := table.Deleter(ctx)
 	for _, r := range rows {
-		if err := deleter.Delete(ctx, r); err != nil {
+		if err := deleter.Delete(ctx, sql.NewSqlRowFromRow(r)); err != nil {
 			require.True(t, sql.ErrDeleteRowNotFound.Is(err))
 		}
 	}

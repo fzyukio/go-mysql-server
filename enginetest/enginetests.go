@@ -5636,14 +5636,15 @@ func TestTypesOverWire(t *testing.T, harness ClientHarness, sessionBuilder serve
 					require.NoError(t, err)
 					expectedRowSet := script.Results[queryIdx]
 					expectedRowIdx := 0
-					var engineRow sql.Row
-					for err = engineIter.Next(ctx, nil); err == nil; err = engineIter.Next(ctx, nil) {
+					for {
+						engineRow := sql.NewSqlRow(0)
+						err = engineIter.Next(ctx, engineRow)
 						if !assert.True(t, r.Next()) {
 							break
 						}
 						expectedRow := expectedRowSet[expectedRowIdx]
 						expectedRowIdx++
-						connRow := make([]*string, len(engineRow))
+						connRow := make([]*string, engineRow.Count())
 						interfaceRow := make([]any, len(connRow))
 						for i := range connRow {
 							interfaceRow[i] = &connRow[i]
@@ -5652,7 +5653,7 @@ func TestTypesOverWire(t *testing.T, harness ClientHarness, sessionBuilder serve
 						if !assert.NoError(t, err) {
 							break
 						}
-						expectedEngineRow := make([]*string, len(engineRow))
+						expectedEngineRow := make([]*string, engineRow.Count())
 						row, err := server.RowToSQL(ctx, sch, engineRow, nil)
 						if !assert.NoError(t, err) {
 							break

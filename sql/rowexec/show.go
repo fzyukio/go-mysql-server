@@ -63,7 +63,7 @@ func (b *BaseBuilder) buildDescribeQuery(ctx *sql.Context, n *plan.DescribeQuery
 			return nil, err
 		}
 		for {
-			err := childIter.Next(ctx, nil)
+			err := childIter.Next(ctx, row)
 			if err == io.EOF {
 				break
 			}

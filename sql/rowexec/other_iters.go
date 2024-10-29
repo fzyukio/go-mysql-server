@@ -132,7 +132,7 @@ var _ plan.BlockRowIter = (*blockIter)(nil)
 
 // Next implements the sql.RowIter interface.
 func (i *blockIter) Next(ctx *sql.Context, row sql.LazyRow) error {
-	return i.internalIter.Next(ctx, nil)
+	return i.internalIter.Next(ctx, row)
 }
 
 // Close implements the sql.RowIter interface.
@@ -156,7 +156,7 @@ type prependRowIter struct {
 }
 
 func (p *prependRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
-	err := p.childIter.Next(ctx, nil)
+	err := p.childIter.Next(ctx, row)
 	if err != nil {
 		return err
 	}
@@ -460,7 +460,7 @@ type releaseIter struct {
 }
 
 func (i *releaseIter) Next(ctx *sql.Context, row sql.LazyRow) error {
-	err := i.child.Next(ctx, nil)
+	err := i.child.Next(ctx, row)
 	if err != nil {
 		_ = i.Close(ctx)
 		return err
@@ -512,7 +512,7 @@ func (ci *concatIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 			if err != nil {
 				return err
 			}
-			err = ci.cur.Next(ctx, nil)
+			err = ci.cur.Next(ctx, row)
 		}
 		if err != nil {
 			return err
@@ -555,7 +555,7 @@ type stripRowIter struct {
 }
 
 func (sri *stripRowIter) Next(ctx *sql.Context, row sql.LazyRow) error {
-	err := sri.RowIter.Next(ctx, nil)
+	err := sri.RowIter.Next(ctx, row)
 	if err != nil {
 		return err
 	}

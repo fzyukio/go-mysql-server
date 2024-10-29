@@ -149,7 +149,7 @@ func RunSetupScripts(ctx *sql.Context, e *sqle.Engine, scripts []setup.SetupScri
 	return e, nil
 }
 
-func MustQuery(ctx *sql.Context, e QueryEngine, q string) (sql.Schema, []sql.Row) {
+func MustQuery(ctx *sql.Context, e QueryEngine, q string) (sql.Schema, []sql.LazyRow) {
 	sch, iter, _, err := e.Query(ctx, q)
 	if err != nil {
 		panic(fmt.Sprintf("err running query %s: %s", q, err))

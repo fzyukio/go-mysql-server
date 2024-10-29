@@ -437,7 +437,7 @@ func (e *Engine) QueryWithBindings(ctx *sql.Context, query string, parsed sqlpar
 		return nil, nil, nil, err
 	}
 
-	iter, err := e.Analyzer.ExecBuilder.Build(ctx, analyzed, nil)
+	iter, err := e.Analyzer.ExecBuilder.Build(ctx, analyzed, sql.NewSqlRow(0))
 	if err != nil {
 		err2 := clearAutocommitTransaction(ctx)
 		if err2 != nil {

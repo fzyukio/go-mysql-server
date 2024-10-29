@@ -26,18 +26,19 @@ func getOKResult(ctx *sql.Context, rows sql.RowIter) (types.OkResult, bool, erro
 	var okr types.OkResult
 	var found bool
 	for !found {
-		err := rows.Next(ctx, nil)
+		row := sql.NewSqlRow(0)
+		err := rows.Next(ctx, row)
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return okr, found, err
 		}
 
-		if len(row) != 1 {
+		if row.Count() != 1 {
 			continue
 		}
 
-		okr, found = row[0].(types.OkResult)
+		okr, found = row.SqlValue(0).(types.OkResult)
 	}
 
 	err := rows.Close(ctx)

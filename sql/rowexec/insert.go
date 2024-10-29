@@ -61,6 +61,7 @@ func getInsertExpressions(values sql.Node) []sql.Expression {
 }
 
 func (i *insertIter) Next(ctx *sql.Context, row sql.LazyRow) (returnErr error) {
+	row = sql.NewSqlRow(0)
 	err := i.rowSource.Next(ctx, row)
 	if err == io.EOF {
 		return err
@@ -73,7 +74,7 @@ func (i *insertIter) Next(ctx *sql.Context, row sql.LazyRow) (returnErr error) {
 	// Prune the row down to the size of the schema. It can be larger in the case of running with an outer scope, in which
 	// case the additional scope variables are prepended to the row.
 	if row.Count() > len(i.schema) {
-		row = sql.NewSqlRowFromRow(row.SqlValues()[row.Count()-len(i.schema):])
+		row = row.SelectRange(row.Count()-len(i.schema), row.Count())
 	}
 
 	err = i.validateNullability(ctx, i.schema, row)
@@ -217,7 +218,7 @@ func (i *insertIter) handleOnDuplicateKeyUpdate(ctx *sql.Context, oldRow, newRow
 	}
 
 	// In the case that we attempted an update, return a concatenated [old,new] row just like update.
-	sql.CopyToSqlRow(10000, evalRow.SqlValues(), newRow)
+	sql.CopyToSqlRow(0, evalRow.SqlValues(), newRow)
 	return nil
 }
 

@@ -102,7 +102,7 @@ type offsetIter struct {
 func (i *offsetIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if i.skip > 0 {
 		for i.skip > 0 {
-			err := i.childIter.Next(ctx, nil)
+			err := i.childIter.Next(ctx, row)
 			if err != nil {
 				return err
 			}
@@ -110,7 +110,7 @@ func (i *offsetIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 		}
 	}
 
-	err := i.childIter.Next(ctx, nil)
+	err := i.childIter.Next(ctx, row)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (i *ProjectIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if err != nil {
 		return err
 	}
-	return ProjectRow(ctx, i.projs, row, 0)
+	return ProjectRow(ctx, i.projs, row, row.Count())
 }
 
 func (i *ProjectIter) Close(ctx *sql.Context) error {
@@ -172,7 +172,7 @@ func ProjectRow(ctx *sql.Context, projections []sql.Expression, row sql.LazyRow,
 			return fErr
 		}
 		field = normalizeNegativeZeros(field)
-		row.SetSqlValue(i, field)
+		row.SetSqlValue(i+start, field)
 	}
 	for _, index := range secondPass {
 		field, err := projections[index].Eval(ctx, row)

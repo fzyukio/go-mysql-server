@@ -162,7 +162,7 @@ type ResultEvaluationHarness interface {
 		expectedRows []sql.Row,
 		expectedCols []*sql.Column,
 		expectdSch sql.Schema,
-		actualRows []sql.Row,
+		actualRows []sql.LazyRow,
 		query string,
 	)
 

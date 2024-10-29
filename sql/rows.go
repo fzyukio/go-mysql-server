@@ -97,7 +97,7 @@ func RowIterToRows(ctx *Context, i RowIter, size int) ([]LazyRow, error) {
 	var rows []LazyRow
 	for {
 		row := NewSqlRow(size)
-		err := i.Next(ctx, nil)
+		err := i.Next(ctx, row)
 		if err == io.EOF {
 			break
 		}
@@ -223,11 +223,11 @@ type LazyRow interface {
 	CopyRange(int, ...interface{})
 }
 
-func NewSqlRow(size int) *SQLRow {
-	return &SQLRow{vals: make([]interface{}, size)}
+func NewSqlRow(size int) LazyRow {
+	return &SQLRow{vals: make([]interface{}, size), appendOnly: size == 0}
 }
 
-func NewSqlRowFromRow(r Row) *SQLRow {
+func NewSqlRowFromRow(r Row) LazyRow {
 	row := NewSqlRow(len(r))
 	for i, v := range r {
 		row.SetSqlValue(i, v)
@@ -242,9 +242,10 @@ func CopyToSqlRow(offset int, r Row, lr LazyRow) {
 }
 
 type SQLRow struct {
-	buf     []byte
-	offsets []int
-	vals    []interface{}
+	appendOnly bool
+	buf        []byte
+	offsets    []int
+	vals       []interface{}
 }
 
 func (r *SQLRow) Bytes(i int) []byte {
@@ -260,6 +261,9 @@ func (r *SQLRow) SqlValues() []interface{} {
 }
 
 func (r *SQLRow) SetSqlValue(i int, v interface{}) {
+	for r.appendOnly && i >= len(r.vals) {
+		r.vals = append(r.vals, nil)
+	}
 	r.vals[i] = v
 }
 

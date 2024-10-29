@@ -80,7 +80,7 @@ type rangeHeapJoinIter struct {
 
 func (iter *rangeHeapJoinIter) loadPrimary(ctx *sql.Context) error {
 	if iter.primaryRow == nil {
-		err := iter.primary.Next(ctx, nil)
+		err := iter.primary.Next(ctx, iter.primaryRow)
 		if err != nil {
 			return err
 		}
@@ -209,7 +209,7 @@ func (iter *rangeHeapJoinIter) initializeHeap(ctx *sql.Context, builder sql.Node
 	iter.activeRanges = nil
 	iter.rangeHeapPlan.ComparisonType = iter.rangeHeapPlan.Schema()[iter.rangeHeapPlan.MaxColumnIndex].Type
 
-	err = iter.childRowIter.Next(ctx, nil)
+	err = iter.childRowIter.Next(ctx, primaryRow)
 	if err == io.EOF {
 		iter.pendingRow = nil
 		return nil
@@ -256,7 +256,7 @@ func (iter *rangeHeapJoinIter) getActiveRanges(ctx *sql.Context, _ sql.NodeExecB
 			}
 		}
 
-		err = iter.childRowIter.Next(ctx, nil)
+		err = iter.childRowIter.Next(ctx, row)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				// We've already imported every range into the priority queue.

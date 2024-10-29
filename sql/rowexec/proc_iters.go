@@ -42,7 +42,7 @@ func (i *ifElseIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 		return err
 	}
 
-	return i.branchIter.Next(ctx, nil)
+	return i.branchIter.Next(ctx, row)
 }
 
 // Close implements the sql.RowIter interface.
@@ -74,7 +74,7 @@ func (b *beginEndIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 		return err
 	}
 
-	err := b.rowIter.Next(ctx, nil)
+	err := b.rowIter.Next(ctx, row)
 	if err != nil {
 		if controlFlow, ok := err.(loopError); ok && strings.ToLower(controlFlow.Label) == strings.ToLower(b.Label) {
 			if controlFlow.IsExit {
@@ -107,7 +107,7 @@ type callIter struct {
 
 // Next implements the sql.RowIter interface.
 func (iter *callIter) Next(ctx *sql.Context, row sql.LazyRow) error {
-	return iter.innerIter.Next(ctx, nil)
+	return iter.innerIter.Next(ctx, row)
 }
 
 // Close implements the sql.RowIter interface.

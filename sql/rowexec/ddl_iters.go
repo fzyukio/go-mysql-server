@@ -2281,7 +2281,7 @@ func rewriteTableForIndexCreate(ctx *sql.Context, n *plan.AlterIndex, table sql.
 	}
 
 	for {
-		r := sql.NewSqlRow(len(n.TargetSchema()))
+		r := sql.NewSqlRow(0)
 		err := rowIter.Next(ctx, r)
 		if err == io.EOF {
 			break

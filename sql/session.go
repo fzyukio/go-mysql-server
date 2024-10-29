@@ -593,7 +593,7 @@ func (i *spanIter) updateTimings(start time.Time) {
 func (i *spanIter) Next(ctx *Context, row LazyRow) error {
 	start := time.Now()
 
-	err := i.iter.Next(ctx, nil)
+	err := i.iter.Next(ctx, row)
 	if err == io.EOF {
 		i.finish()
 		return err

@@ -63,7 +63,7 @@ func (i *TableRowIter) Next(ctx *Context, row LazyRow) error {
 		i.rows = rows
 	}
 
-	err := i.rows.Next(ctx, nil)
+	err := i.rows.Next(ctx, row)
 	if err != nil && err == io.EOF {
 		if err = i.rows.Close(ctx); err != nil {
 			return err
@@ -71,7 +71,7 @@ func (i *TableRowIter) Next(ctx *Context, row LazyRow) error {
 
 		i.partition = nil
 		i.rows = nil
-		err = i.Next(ctx, nil)
+		err = i.Next(ctx, row)
 	}
 	return err
 }

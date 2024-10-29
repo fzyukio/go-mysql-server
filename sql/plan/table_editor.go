@@ -52,7 +52,7 @@ func (s *TableEditorIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 			openerCloser.StatementBegin(ctx)
 		}
 	})
-	err := s.inner.Next(ctx, nil)
+	err := s.inner.Next(ctx, row)
 	if err != nil && err != io.EOF {
 		s.errorEncountered = err
 		return err

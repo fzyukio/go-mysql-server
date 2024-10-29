@@ -486,7 +486,7 @@ func CheckResults(
 	expected []sql.Row,
 	expectedCols []*sql.Column,
 	sch sql.Schema,
-	rows []sql.Row,
+	rows []sql.LazyRow,
 	q string,
 	e QueryEngine,
 ) {
@@ -600,7 +600,7 @@ func injectBindVarsAndPrepare(
 	return buf.String(), bindVars, nil
 }
 
-func runQueryPreparedWithCtx(t *testing.T, ctx *sql.Context, e QueryEngine, q string, bindVars map[string]sqlparser.Expr, checkIndexedAccess bool) ([]sql.Row, sql.Schema, error) {
+func runQueryPreparedWithCtx(t *testing.T, ctx *sql.Context, e QueryEngine, q string, bindVars map[string]sqlparser.Expr, checkIndexedAccess bool) ([]sql.LazyRow, sql.Schema, error) {
 	// If bindvars were not provided, try to inject some
 	if bindVars == nil || len(bindVars) == 0 {
 		var err error
@@ -653,11 +653,11 @@ func checkResults(
 	expected []sql.Row,
 	expectedCols []*sql.Column,
 	sch sql.Schema,
-	rows []sql.Row,
+	rows []sql.LazyRow,
 	q string,
 	e QueryEngine,
 ) {
-	widenedRows := WidenRows(sch, rows)
+	widenedRows := WidenLazyRows(sch, rows)
 	widenedExpected := WidenRows(sch, expected)
 
 	upperQuery := strings.ToUpper(q)
@@ -786,11 +786,18 @@ func WidenRows(sch sql.Schema, rows []sql.Row) []sql.Row {
 	return widened
 }
 
+func WidenLazyRows(sch sql.Schema, rows []sql.LazyRow) []sql.Row {
+	widened := make([]sql.Row, len(rows))
+	for i, row := range rows {
+		widened[i] = WidenRow(sch, row.SelectRange(row.Count()-len(sch), row.Count()).SqlValues())
+	}
+	return widened
+}
+
 // WidenRow returns a row with all values widened to their widest type
 func WidenRow(sch sql.Schema, row sql.Row) sql.Row {
 	widened := make(sql.Row, len(row))
 	for i, v := range row {
-
 		var vw interface{}
 		if i < len(sch) && types.IsJSON(sch[i].Type) {
 			widened[i] = widenJSONValues(v)

@@ -439,7 +439,7 @@ func (li *LimitIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 		// result set to count it
 		if li.CalcFoundRows {
 			for {
-				err := li.ChildIter.Next(ctx, nil)
+				err := li.ChildIter.Next(ctx, row)
 				if err != nil {
 					return err
 				}
@@ -450,7 +450,7 @@ func (li *LimitIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 		return io.EOF
 	}
 
-	err := li.ChildIter.Next(ctx, nil)
+	err := li.ChildIter.Next(ctx, row)
 	if err != nil {
 		return err
 	}
@@ -567,7 +567,7 @@ func NewDistinctIter(ctx *sql.Context, child sql.RowIter) *distinctIter {
 
 func (di *distinctIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	for {
-		err := di.childIter.Next(ctx, nil)
+		err := di.childIter.Next(ctx, row)
 		if err != nil {
 			if err == io.EOF {
 				di.Dispose()
@@ -609,7 +609,7 @@ type UnionIter struct {
 }
 
 func (ui *UnionIter) Next(ctx *sql.Context, row sql.LazyRow) error {
-	err := ui.Cur.Next(ctx, nil)
+	err := ui.Cur.Next(ctx, row)
 	if err == io.EOF {
 		if ui.NextIter == nil {
 			return io.EOF
@@ -623,7 +623,7 @@ func (ui *UnionIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 		if err != nil {
 			return err
 		}
-		return ui.Cur.Next(ctx, nil)
+		return ui.Cur.Next(ctx, row)
 	}
 	return err
 }

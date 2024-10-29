@@ -242,7 +242,7 @@ func (b *BaseBuilder) buildBlock(ctx *sql.Context, n *plan.Block, row sql.LazyRo
 				defer handlerRowIter.Close(ctx)
 
 				for {
-					err := handlerRowIter.Next(ctx, nil)
+					err := handlerRowIter.Next(ctx, row)
 					if err == io.EOF {
 						break
 					} else if err != nil {
