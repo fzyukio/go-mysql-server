@@ -684,6 +684,7 @@ func (h *Handler) resultForDefaultIter(
 				ctx.GetLogger().Tracef("spooling result row %s", outputRow)
 				r.Rows = append(r.Rows, outputRow)
 				r.RowsAffected++
+
 			case <-timer.C:
 				// TODO: timer should probably go in its own thread, as rowChan is blocking
 				if h.readTimeout != 0 {
@@ -716,6 +717,15 @@ func (h *Handler) resultForDefaultIter(
 		returnErr = err
 	}
 	return
+}
+
+var rowPool = sync.Pool{
+	New: func() any {
+		// The Pool's New function should generally only return pointer
+		// types, since a pointer can be put into the return interface
+		// value without an allocation:
+		return sql.NewSqlRow(0)
+	},
 }
 
 // See https://dev.mysql.com/doc/internals/en/status-flags.html
@@ -1089,9 +1099,9 @@ func (h *Handler) executeBoundPlan(
 	_ sqlparser.Statement,
 	plan sql.Node,
 	_ map[string]*querypb.BindVariable,
-	_ *sql.QueryFlags,
+	qflags *sql.QueryFlags,
 ) (sql.Schema, sql.RowIter, *sql.QueryFlags, error) {
-	return h.e.PrepQueryPlanForExecution(ctx, query, plan)
+	return h.e.PrepQueryPlanForExecution(ctx, query, plan, qflags)
 }
 
 func bindingsToExprs(bindings map[string]*querypb.BindVariable) (map[string]sqlparser.Expr, error) {

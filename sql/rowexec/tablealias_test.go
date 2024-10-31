@@ -53,7 +53,7 @@ func TestTableAlias(t *testing.T) {
 		{Name: "a", Source: "foo", Type: types.Text, Nullable: true},
 		{Name: "b", Source: "foo", Type: types.Text, Nullable: true},
 	}, alias.Schema())
-	iter, err := DefaultBuilder.Build(ctx, alias, nil)
+	iter, err := DefaultBuilder.Build(ctx, alias, nil, nil)
 	require.NoError(err)
 
 	var i int

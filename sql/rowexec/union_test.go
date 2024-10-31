@@ -83,7 +83,7 @@ func TestUnion(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		iter, err := DefaultBuilder.Build(ctx, c.node, nil)
+		iter, err := DefaultBuilder.Build(ctx, c.node, nil, nil)
 		require.NoError(err)
 		require.NotNil(iter)
 

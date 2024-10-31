@@ -319,7 +319,7 @@ func testHistogram(ctx *sql.Context, table *plan.ResolvedTable, fields []int, bu
 		return nil, fmt.Errorf("found zero row count for table")
 	}
 
-	i, err := rowexec.DefaultBuilder.Build(ctx, table, nil)
+	i, err := rowexec.DefaultBuilder.Build(ctx, table, nil, nil)
 	rows, err := sql.RowIterToRows(ctx, i, 0)
 	if err != nil {
 		return nil, err
@@ -420,7 +420,7 @@ func expectedResultSize(ctx *sql.Context, t1, t2 *plan.ResolvedTable, filters []
 	if debug {
 		fmt.Println(sql.DebugString(j))
 	}
-	i, err := rowexec.DefaultBuilder.Build(ctx, j, nil)
+	i, err := rowexec.DefaultBuilder.Build(ctx, j, nil, nil)
 	if err != nil {
 		return 0, err
 	}

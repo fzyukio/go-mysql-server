@@ -35,7 +35,7 @@ func TestOffsetPlan(t *testing.T) {
 	offset := plan.NewOffset(expression.NewLiteral(0, types.Int8), plan.NewResolvedTable(table, nil, nil))
 	require.Equal(1, len(offset.Children()))
 
-	iter, err := DefaultBuilder.Build(ctx, offset, nil)
+	iter, err := DefaultBuilder.Build(ctx, offset, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 }
@@ -49,7 +49,7 @@ func TestOffset(t *testing.T) {
 
 	offset := plan.NewOffset(expression.NewLiteral(1, types.Int8), plan.NewResolvedTable(table, nil, nil))
 
-	iter, err := DefaultBuilder.Build(ctx, offset, nil)
+	iter, err := DefaultBuilder.Build(ctx, offset, nil, nil)
 	require.NoError(err)
 	assertRows(t, ctx, iter, int64(n-1))
 }

@@ -47,7 +47,7 @@ func TestShowCreateTable(t *testing.T) {
 	showCreateTable, err := NewShowCreateTable(NewResolvedTable(table, nil, nil), false).WithTargetSchema(schema)
 	require.NoError(err)
 
-	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil)
+	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil, nil)
 
 	err := rowIter.Next(ctx, nil)
 
@@ -69,7 +69,7 @@ func TestShowCreateTable(t *testing.T) {
 	showCreateTable = NewShowCreateTable(NewResolvedTable(table, nil, nil), true)
 
 	ctx = sql.NewEmptyContext()
-	rowIter, _ = DefaultBuilder.Build(ctx, showCreateTable, nil)
+	rowIter, _ = DefaultBuilder.Build(ctx, showCreateTable, nil, nil)
 
 	err = rowIter.Next(ctx, nil)
 	require.Error(err)
@@ -98,7 +98,7 @@ func TestShowCreateTableWithNoPrimaryKey(t *testing.T) {
 	showCreateTable, err = showCreateTable.(*ShowCreateTable).WithPrimaryKeySchema(pkSchema)
 	require.NoError(err)
 
-	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil)
+	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil, nil)
 
 	err := rowIter.Next(ctx, nil)
 
@@ -139,7 +139,7 @@ func TestShowCreateTableWithPrimaryKey(t *testing.T) {
 	showCreateTable, err = showCreateTable.(*ShowCreateTable).WithPrimaryKeySchema(pkSchema)
 	require.NoError(err)
 
-	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil)
+	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil, nil)
 
 	err := rowIter.Next(ctx, nil)
 
@@ -247,7 +247,7 @@ func TestShowCreateTableWithIndexAndForeignKeysAndChecks(t *testing.T) {
 		},
 	})
 
-	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil)
+	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil, nil)
 
 	err := rowIter.Next(ctx, nil)
 
@@ -293,7 +293,7 @@ func TestShowCreateView(t *testing.T) {
 		true,
 	)
 
-	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil)
+	rowIter, _ := DefaultBuilder.Build(ctx, showCreateTable, nil, nil)
 
 	err := rowIter.Next(ctx, nil)
 

@@ -53,7 +53,7 @@ func (tc *TableCopier) Database() sql.Database {
 func (tc *TableCopier) ProcessCreateTable(ctx *sql.Context, b sql.NodeExecBuilder, row sql.LazyRow) (sql.RowIter, error) {
 	ct := tc.Destination.(*CreateTable)
 
-	_, err := b.Build(ctx, ct, row)
+	_, err := b.Build(ctx, ct, row, nil)
 	if err != nil {
 		return sql.RowsToRowIter(), err
 	}
@@ -77,7 +77,7 @@ func (tc *TableCopier) ProcessCreateTable(ctx *sql.Context, b sql.NodeExecBuilde
 	// Wrap the insert into a row update accumulator
 	roa := NewRowUpdateAccumulator(ii, UpdateTypeInsert)
 
-	return b.Build(ctx, roa, row)
+	return b.Build(ctx, roa, row, nil)
 }
 
 // createTableSelectCanBeCopied determines whether the newly created table's data can just be copied from the Source table

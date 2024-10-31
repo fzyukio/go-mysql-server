@@ -58,7 +58,7 @@ func (b *BaseBuilder) buildDescribeQuery(ctx *sql.Context, n *plan.DescribeQuery
 			return nil, errors.New("cannot analyze statement that could have side effects")
 		}
 		// Iterate over the child until its exhausted, in order to populate the stats.
-		childIter, err := b.Build(ctx, n.Child, row)
+		childIter, err := b.Build(ctx, n.Child, row, nil)
 		if err != nil {
 			return nil, err
 		}

@@ -51,7 +51,7 @@ func setupView(t *testing.T, db memory.MemoryDatabase) (*sql.Context, *sql.View)
 
 	ctx := sql.NewContext(context.Background())
 
-	_, err := DefaultBuilder.Build(ctx, createView, nil)
+	_, err := DefaultBuilder.Build(ctx, createView, nil, nil)
 	require.NoError(t, err)
 
 	return ctx, createView.View()
@@ -67,7 +67,7 @@ func TestDropExistingViewFromRegistry(t *testing.T) {
 		singleDropView := plan.NewSingleDropView(db, view.Name())
 		dropView := plan.NewDropView([]sql.Node{singleDropView}, ifExists)
 
-		_, err := DefaultBuilder.Build(ctx, dropView, nil)
+		_, err := DefaultBuilder.Build(ctx, dropView, nil, nil)
 		require.NoError(t, err)
 
 		require.False(t, ctx.GetViewRegistry().Exists(db.Name(), view.Name()))
@@ -87,7 +87,7 @@ func TestDropNonExistingViewFromRegistry(t *testing.T) {
 		singleDropView := plan.NewSingleDropView(db, "non-existing-view")
 		dropView := plan.NewDropView([]sql.Node{singleDropView}, ifExists)
 
-		_, err := DefaultBuilder.Build(ctx, dropView, nil)
+		_, err := DefaultBuilder.Build(ctx, dropView, nil, nil)
 
 		require.True(t, ctx.GetViewRegistry().Exists(db.Name(), view.Name()))
 
@@ -111,7 +111,7 @@ func TestDropExistingViewNative(t *testing.T) {
 		singleDropView := plan.NewSingleDropView(db, view.Name())
 		dropView := plan.NewDropView([]sql.Node{singleDropView}, ifExists)
 
-		_, err := DefaultBuilder.Build(ctx, dropView, nil)
+		_, err := DefaultBuilder.Build(ctx, dropView, nil, nil)
 		require.NoError(t, err)
 
 		_, ok, err := db.GetViewDefinition(ctx, view.Name())
@@ -133,7 +133,7 @@ func TestDropNonExistingViewNative(t *testing.T) {
 		singleDropView := plan.NewSingleDropView(db, "non-existing-view")
 		dropView := plan.NewDropView([]sql.Node{singleDropView}, ifExists)
 
-		_, dropErr := DefaultBuilder.Build(ctx, dropView, nil)
+		_, dropErr := DefaultBuilder.Build(ctx, dropView, nil, nil)
 
 		_, ok, err := db.GetViewDefinition(ctx, view.Name())
 		require.NoError(t, err)

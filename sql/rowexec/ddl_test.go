@@ -79,7 +79,7 @@ func TestDropTable(t *testing.T) {
 		plan.NewResolvedTable(memory.NewTable(db.BaseDatabase, "testTable1", s, db.GetForeignKeyCollection()), db, nil),
 		plan.NewResolvedTable(memory.NewTable(db.BaseDatabase, "testTable2", s, db.GetForeignKeyCollection()), db, nil),
 	}, false)
-	rows, err := DefaultBuilder.Build(ctx, d, nil)
+	rows, err := DefaultBuilder.Build(ctx, d, nil, nil)
 	require.NoError(err)
 
 	err := rows.Next(ctx, nil)
@@ -97,11 +97,11 @@ func TestDropTable(t *testing.T) {
 	require.True(ok)
 
 	d = plan.NewDropTable([]sql.Node{plan.NewResolvedTable(memory.NewTable(db.Database(), "testTable1", s, db.GetForeignKeyCollection()), db, nil)}, false)
-	_, err = DefaultBuilder.Build(ctx, d, nil)
+	_, err = DefaultBuilder.Build(ctx, d, nil, nil)
 	require.Error(err)
 
 	d = plan.NewDropTable([]sql.Node{plan.NewResolvedTable(memory.NewTable(db.Database(), "testTable3", s, db.GetForeignKeyCollection()), db, nil)}, false)
-	_, err = DefaultBuilder.Build(ctx, d, nil)
+	_, err = DefaultBuilder.Build(ctx, d, nil, nil)
 	require.NoError(err)
 
 	_, ok = db.Tables()["testTable3"]
@@ -111,7 +111,7 @@ func TestDropTable(t *testing.T) {
 func createTable(t *testing.T, ctx *sql.Context, db sql.Database, name string, schema sql.PrimaryKeySchema, ifNotExists, temporary bool) error {
 	c := plan.NewCreateTable(db, name, ifNotExists, temporary, &plan.TableSpec{Schema: schema})
 
-	rows, err := DefaultBuilder.Build(ctx, c, nil)
+	rows, err := DefaultBuilder.Build(ctx, c, nil, nil)
 	if err != nil {
 		return err
 	}

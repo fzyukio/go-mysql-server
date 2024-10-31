@@ -37,11 +37,11 @@ func NewLeftMergeJoin(left, right sql.Node, cond sql.Expression) *plan.JoinNode 
 }
 
 func newMergeJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row sql.LazyRow) (sql.RowIter, error) {
-	l, err := b.Build(ctx, j.Left(), row)
+	l, err := b.Build(ctx, j.Left(), row, nil)
 	if err != nil {
 		return nil, err
 	}
-	r, err := b.Build(ctx, j.Right(), row)
+	r, err := b.Build(ctx, j.Right(), row, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -57,7 +57,7 @@ func TestDistinct(t *testing.T) {
 	}, plan.NewResolvedTable(child, nil, nil))
 	d := plan.NewDistinct(p)
 
-	iter, err := DefaultBuilder.Build(ctx, d, nil)
+	iter, err := DefaultBuilder.Build(ctx, d, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 
@@ -107,7 +107,7 @@ func TestOrderedDistinct(t *testing.T) {
 	}, plan.NewResolvedTable(child, nil, nil))
 	d := plan.NewOrderedDistinct(p)
 
-	iter, err := DefaultBuilder.Build(ctx, d, nil)
+	iter, err := DefaultBuilder.Build(ctx, d, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 
@@ -142,7 +142,7 @@ func BenchmarkDistinct(b *testing.B) {
 		}, plan.NewResolvedTable(benchtable, nil, nil))
 		d := plan.NewDistinct(p)
 
-		iter, err := DefaultBuilder.Build(ctx, d, nil)
+		iter, err := DefaultBuilder.Build(ctx, d, nil, nil)
 		require.NoError(err)
 		require.NotNil(iter)
 
@@ -175,7 +175,7 @@ func BenchmarkOrderedDistinct(b *testing.B) {
 		}, plan.NewResolvedTable(benchtable, nil, nil))
 		d := plan.NewOrderedDistinct(p)
 
-		iter, err := DefaultBuilder.Build(ctx, d, nil)
+		iter, err := DefaultBuilder.Build(ctx, d, nil, nil)
 		require.NoError(err)
 		require.NotNil(iter)
 

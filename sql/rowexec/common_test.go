@@ -129,7 +129,7 @@ func assertRows(t *testing.T, ctx *sql.Context, iter sql.RowIter, expected int64
 func collectRows(t *testing.T, ctx *sql.Context, node sql.Node) []sql.Row {
 	t.Helper()
 
-	iter, err := DefaultBuilder.Build(ctx, node, nil)
+	iter, err := DefaultBuilder.Build(ctx, node, nil, nil)
 	require.NoError(t, err)
 
 	var rows []sql.Row

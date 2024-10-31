@@ -218,6 +218,7 @@ type LazyRow interface {
 	SetSqlValue(i int, v interface{})
 	Equals(LazyRow, Schema) (bool, error)
 	Count() int
+	Truncate()
 	Copy() LazyRow
 	SelectRange(int, int) LazyRow
 	CopyRange(int, ...interface{})
@@ -281,6 +282,10 @@ func (r *SQLRow) SelectRange(i, j int) LazyRow {
 
 func (r *SQLRow) Count() int {
 	return len(r.vals)
+}
+
+func (r *SQLRow) Truncate() {
+	r.vals = r.vals[:0]
 }
 
 func (r *SQLRow) Copy() LazyRow {

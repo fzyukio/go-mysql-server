@@ -54,7 +54,7 @@ func TestQueryProcess(t *testing.T) {
 		},
 	)
 
-	iter, err := DefaultBuilder.Build(ctx, node, nil)
+	iter, err := DefaultBuilder.Build(ctx, node, nil, nil)
 	require.NoError(err)
 
 	rows, err := sql.RowIterToRows(ctx, iter)
@@ -107,7 +107,7 @@ func TestProcessTable(t *testing.T) {
 		), nil, nil),
 	)
 
-	iter, err := DefaultBuilder.Build(ctx, node, nil)
+	iter, err := DefaultBuilder.Build(ctx, node, nil, nil)
 	require.NoError(err)
 
 	rows, err := sql.RowIterToRows(ctx, iter, 0)

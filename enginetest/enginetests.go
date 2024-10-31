@@ -5906,7 +5906,7 @@ func TestSQLLogicTests(t *testing.T, harness Harness) {
 // ExecuteNode builds an iterator and then drains it.
 // This is useful for populating actual row counts for `DESCRIBE ANALYZE`.
 func ExecuteNode(ctx *sql.Context, engine QueryEngine, node sql.Node) error {
-	iter, err := engine.EngineAnalyzer().ExecBuilder.Build(ctx, node, nil)
+	iter, err := engine.EngineAnalyzer().ExecBuilder.Build(ctx, node, nil, nil)
 	if err != nil {
 		return err
 	}

@@ -48,7 +48,7 @@ func newJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row 
 		attribute.String("right", rightName),
 	))
 
-	l, err := b.Build(ctx, j.Left(), row)
+	l, err := b.Build(ctx, j.Left(), row, nil)
 	if err != nil {
 		span.End()
 		return nil, err
@@ -99,7 +99,7 @@ func (i *joinIter) loadPrimary(ctx *sql.Context) error {
 
 func (i *joinIter) loadSecondary(ctx *sql.Context) (sql.LazyRow, error) {
 	if i.secondary == nil {
-		rowIter, err := i.b.Build(ctx, i.secondaryProvider, i.primaryRow)
+		rowIter, err := i.b.Build(ctx, i.secondaryProvider, i.primaryRow, nil)
 
 		if err != nil {
 			return nil, err
@@ -211,7 +211,7 @@ func (i *joinIter) Close(ctx *sql.Context) (err error) {
 }
 
 func newExistsIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row sql.LazyRow) (sql.RowIter, error) {
-	leftIter, err := b.Build(ctx, j.Left(), row)
+	leftIter, err := b.Build(ctx, j.Left(), row, nil)
 
 	if err != nil {
 		return nil, err
@@ -279,7 +279,7 @@ func (i *existsIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 			}
 			// TODO offset
 			buildRow(0, row, i.parentRow)
-			rIter, err = i.b.Build(ctx, i.secondaryProvider, row)
+			rIter, err = i.b.Build(ctx, i.secondaryProvider, row, nil)
 			if err != nil {
 				return err
 			}
@@ -380,7 +380,7 @@ func (i *existsIter) Close(ctx *sql.Context) (err error) {
 }
 
 func newFullJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row sql.LazyRow) (sql.RowIter, error) {
-	leftIter, err := b.Build(ctx, j.Left(), row)
+	leftIter, err := b.Build(ctx, j.Left(), row, nil)
 
 	if err != nil {
 		return nil, err
@@ -438,7 +438,7 @@ func (i *fullJoinIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 		}
 
 		if i.r == nil {
-			iter, err := i.b.Build(ctx, i.rp, i.leftRow)
+			iter, err := i.b.Build(ctx, i.rp, i.leftRow, nil)
 			if err != nil {
 				return err
 			}
@@ -487,7 +487,7 @@ func (i *fullJoinIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 
 	for {
 		if i.r == nil {
-			iter, err := i.b.Build(ctx, i.rp, i.leftRow)
+			iter, err := i.b.Build(ctx, i.rp, i.leftRow, nil)
 			if err != nil {
 				return err
 			}
@@ -554,7 +554,7 @@ func newCrossJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode,
 		attribute.String("right", right),
 	))
 
-	l, err := b.Build(ctx, j.Left(), row)
+	l, err := b.Build(ctx, j.Left(), row, nil)
 	if err != nil {
 		span.End()
 		return nil, err
@@ -598,7 +598,7 @@ func (i *crossJoinIterator) Next(ctx *sql.Context, row sql.LazyRow) error {
 		}
 
 		if i.r == nil {
-			iter, err := i.b.Build(ctx, i.rp, i.leftRow)
+			iter, err := i.b.Build(ctx, i.rp, i.leftRow, nil)
 			if err != nil {
 				return err
 			}
@@ -704,7 +704,7 @@ func newLateralJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNod
 		attribute.String("right", right),
 	))
 
-	l, err := b.Build(ctx, j.Left(), row)
+	l, err := b.Build(ctx, j.Left(), row, nil)
 	if err != nil {
 		span.End()
 		return nil, err
@@ -741,7 +741,7 @@ func (i *lateralJoinIterator) buildRight(ctx *sql.Context) error {
 		if err != nil {
 			return err
 		}
-		iter, err := i.b.Build(ctx, prepended, i.lRow)
+		iter, err := i.b.Build(ctx, prepended, i.lRow, nil)
 		if err != nil {
 			return err
 		}

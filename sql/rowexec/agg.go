@@ -32,6 +32,7 @@ type groupByIter struct {
 	ctx           *sql.Context
 	buf           []sql.AggregationBuffer
 	done          bool
+	offset        int
 }
 
 func newGroupByIter(selectedExprs []sql.Expression, child sql.RowIter) *groupByIter {
@@ -40,6 +41,11 @@ func newGroupByIter(selectedExprs []sql.Expression, child sql.RowIter) *groupByI
 		child:         child,
 		buf:           make([]sql.AggregationBuffer, len(selectedExprs)),
 	}
+}
+
+func (i *groupByIter) WithOffset(o int) sql.RowIter {
+	i.offset = o
+	return i
 }
 
 func (i *groupByIter) Next(ctx *sql.Context, row sql.LazyRow) error {
@@ -73,7 +79,7 @@ func (i *groupByIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 		if err := updateBuffers(ctx, i.buf, row); err != nil {
 			return err
 		}
-		return evalBuffers(ctx, i.buf, row)
+		return evalBuffers(ctx, i.buf, row, i.offset)
 	}
 	i.done = true
 
@@ -91,7 +97,7 @@ func (i *groupByIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 		}
 	}
 
-	err = evalBuffers(ctx, i.buf, row)
+	err = evalBuffers(ctx, i.buf, row, i.offset)
 	if err != nil {
 		return err
 	}
@@ -118,6 +124,7 @@ type groupByGroupingIter struct {
 	pos           int
 	child         sql.RowIter
 	dispose       sql.DisposeFunc
+	offset        int
 }
 
 func newGroupByGroupingIter(
@@ -130,6 +137,11 @@ func newGroupByGroupingIter(
 		groupByExprs:  groupByExprs,
 		child:         child,
 	}
+}
+
+func (i *groupByGroupingIter) WithOffset(o int) sql.RowIter {
+	i.offset = o
+	return i
 }
 
 func (i *groupByGroupingIter) Next(ctx *sql.Context, row sql.LazyRow) error {
@@ -150,7 +162,7 @@ func (i *groupByGroupingIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	}
 	i.pos++
 
-	err = evalBuffers(ctx, buffers, row)
+	err = evalBuffers(ctx, buffers, row, i.offset)
 	if err != nil {
 		return err
 	}
@@ -304,6 +316,7 @@ func evalBuffers(
 	ctx *sql.Context,
 	buffers []sql.AggregationBuffer,
 	row sql.LazyRow,
+	offset int,
 ) error {
 	var err error
 	var val interface{}
@@ -312,7 +325,7 @@ func evalBuffers(
 		if err != nil {
 			return err
 		}
-		row.SetSqlValue(i, val)
+		row.SetSqlValue(offset+i, val)
 	}
 	return nil
 }

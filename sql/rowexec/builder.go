@@ -20,7 +20,7 @@ import (
 	"github.com/dolthub/go-mysql-server/sql"
 )
 
-var DefaultBuilder = &BaseBuilder{}
+var DefaultBuilder = &BaseBuilder{indexer: newIndexer()}
 
 var _ sql.NodeExecBuilder = (*BaseBuilder)(nil)
 
@@ -33,13 +33,17 @@ type BaseBuilder struct {
 	// if override is provided, we try to build executor with this first
 	override                sql.NodeExecBuilder
 	triggerSavePointCounter int // tracks the number of save points that have been created by triggers
+	indexer                 *Indexer
 }
 
-func (b *BaseBuilder) Build(ctx *sql.Context, n sql.Node, r sql.LazyRow) (sql.RowIter, error) {
+func (b *BaseBuilder) Build(ctx *sql.Context, n sql.Node, r sql.LazyRow, qFlags *sql.QueryFlags) (sql.RowIter, error) {
 	defer trace.StartRegion(ctx, "ExecBuilder.Build").End()
+	if qFlags != nil {
+		b.indexer.Init(qFlags)
+	}
 	return b.buildNodeExec(ctx, n, r)
 }
 
 func NewOverrideBuilder(override sql.NodeExecBuilder) sql.NodeExecBuilder {
-	return &BaseBuilder{override: override}
+	return &BaseBuilder{override: override, indexer: newIndexer()}
 }

@@ -35,7 +35,7 @@ func TestShowWarnings(t *testing.T) {
 	sw := plan.ShowWarnings(ctx.Session.Warnings())
 	require.True(sw.Resolved())
 
-	it, err := DefaultBuilder.Build(ctx, sw, nil)
+	it, err := DefaultBuilder.Build(ctx, sw, nil, nil)
 	require.NoError(err)
 
 	n := 3

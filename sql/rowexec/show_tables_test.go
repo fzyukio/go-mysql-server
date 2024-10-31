@@ -43,7 +43,7 @@ func TestShowTables(t *testing.T) {
 	require.True(resolvedShowTables.Resolved())
 	require.Nil(resolvedShowTables.Children())
 
-	iter, err := DefaultBuilder.Build(ctx, resolvedShowTables, nil)
+	iter, err := DefaultBuilder.Build(ctx, resolvedShowTables, nil, nil)
 	require.NoError(err)
 
 	err := iter.Next(ctx, nil)

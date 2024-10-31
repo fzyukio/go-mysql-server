@@ -43,7 +43,7 @@ func TestSet(t *testing.T) {
 		},
 	)
 
-	_, err := DefaultBuilder.Build(ctx, s, nil)
+	_, err := DefaultBuilder.Build(ctx, s, nil, nil)
 	require.NoError(err)
 
 	typ, v, err := ctx.GetUserVariable(ctx, "foo")
@@ -97,7 +97,7 @@ func TestPersistedSessionSetIterator(t *testing.T) {
 				},
 			)
 
-			_, err := DefaultBuilder.Build(sqlCtx, s, nil)
+			_, err := DefaultBuilder.Build(sqlCtx, s, nil, nil)
 			if test.err != nil {
 				assert.True(t, test.err.Is(err))
 				return

@@ -42,7 +42,7 @@ func TestShowColumns(t *testing.T) {
 	showColumns, err := NewShowColumns(false, table).WithTargetSchema(schema)
 	require.NoError(err)
 
-	iter, err := DefaultBuilder.Build(ctx, showColumns, nil)
+	iter, err := DefaultBuilder.Build(ctx, showColumns, nil, nil)
 	require.NoError(err)
 
 	rows, err := sql.RowIterToRows(ctx, iter, 0)
@@ -101,7 +101,7 @@ func TestShowColumnsWithIndexes(t *testing.T) {
 		},
 	}
 
-	iter, err := DefaultBuilder.Build(ctx, showColumns, nil)
+	iter, err := DefaultBuilder.Build(ctx, showColumns, nil, nil)
 	require.NoError(err)
 
 	rows, err := sql.RowIterToRows(ctx, iter, 0)
@@ -143,7 +143,7 @@ func TestShowColumnsWithIndexes(t *testing.T) {
 		},
 	)
 
-	iter, err = DefaultBuilder.Build(sql.NewEmptyContext(), showColumns, nil)
+	iter, err = DefaultBuilder.Build(sql.NewEmptyContext(), showColumns, nil, nil)
 	require.NoError(err)
 
 	rows, err = sql.RowIterToRows(ctx, iter, 0)
@@ -167,7 +167,7 @@ func TestShowColumnsFull(t *testing.T) {
 	showColumns, err := NewShowColumns(true, table).WithTargetSchema(schema)
 	require.NoError(err)
 
-	iter, err := DefaultBuilder.Build(ctx, showColumns, nil)
+	iter, err := DefaultBuilder.Build(ctx, showColumns, nil, nil)
 	require.NoError(err)
 
 	rows, err := sql.RowIterToRows(ctx, iter, 0)

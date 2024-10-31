@@ -157,7 +157,7 @@ func wrapRowSource(ctx *sql.Context, insertSource sql.Node, destTbl sql.Table, s
 			}
 			projExprs[i] = def
 		} else {
-			projExprs[i] = expression.NewGetField(colIdx, col.Type, col.Name, col.Nullable)
+			projExprs[i] = expression.NewGetField(colIdx+1, col.Type, col.Name, col.Nullable)
 		}
 
 		if col.AutoIncrement {

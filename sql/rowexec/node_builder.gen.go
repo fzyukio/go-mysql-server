@@ -27,7 +27,7 @@ func (b *BaseBuilder) buildNodeExec(ctx *sql.Context, n sql.Node, row sql.LazyRo
 	var iter sql.RowIter
 	var err error
 	if b.override != nil {
-		iter, err = b.override.Build(ctx, n, row)
+		iter, err = b.override.Build(ctx, n, row, nil)
 	}
 	if err != nil {
 		return nil, err
@@ -38,366 +38,369 @@ func (b *BaseBuilder) buildNodeExec(ctx *sql.Context, n sql.Node, row sql.LazyRo
 	if err != nil {
 		return nil, err
 	}
+	b.indexer.qFlags.MaxExprCnt = b.indexer.idx
 	if withDescribeStats, ok := n.(sql.WithDescribeStats); ok {
 		iter = sql.NewCountingRowIter(iter, withDescribeStats)
 	}
 	return iter, nil
 }
 
-func (b *BaseBuilder) buildNodeExecNoAnalyze(ctx *sql.Context, n sql.Node, row sql.LazyRow) (sql.RowIter, error) {
+func (b *BaseBuilder) buildNodeExecNoAnalyze(ctx *sql.Context, n sql.Node, row sql.LazyRow) (iter sql.RowIter, err error) {
 	switch n := n.(type) {
 	case *plan.CreateForeignKey:
-		return b.buildCreateForeignKey(ctx, n, row)
+		iter, err = b.buildCreateForeignKey(ctx, n, row)
 	case *plan.AlterTableCollation:
-		return b.buildAlterTableCollation(ctx, n, row)
+		iter, err = b.buildAlterTableCollation(ctx, n, row)
 	case *plan.CreateRole:
-		return b.buildCreateRole(ctx, n, row)
+		iter, err = b.buildCreateRole(ctx, n, row)
 	case *plan.Loop:
-		return b.buildLoop(ctx, n, row)
+		iter, err = b.buildLoop(ctx, n, row)
 	case *plan.TransactionCommittingNode:
-		return b.buildTransactionCommittingNode(ctx, n, row)
+		iter, err = b.buildTransactionCommittingNode(ctx, n, row)
 	case *plan.DropColumn:
-		return b.buildDropColumn(ctx, n, row)
+		iter, err = b.buildDropColumn(ctx, n, row)
 	case *plan.AnalyzeTable:
-		return b.buildAnalyzeTable(ctx, n, row)
+		iter, err = b.buildAnalyzeTable(ctx, n, row)
 	case *plan.UpdateHistogram:
-		return b.buildUpdateHistogram(ctx, n, row)
+		iter, err = b.buildUpdateHistogram(ctx, n, row)
 	case *plan.DropHistogram:
-		return b.buildDropHistogram(ctx, n, row)
+		iter, err = b.buildDropHistogram(ctx, n, row)
 	case *plan.QueryProcess:
-		return b.buildQueryProcess(ctx, n, row)
+		iter, err = b.buildQueryProcess(ctx, n, row)
 	case *plan.ShowBinlogs:
-		return b.buildShowBinlogs(ctx, n, row)
+		iter, err = b.buildShowBinlogs(ctx, n, row)
 	case *plan.ShowBinlogStatus:
-		return b.buildShowBinlogStatus(ctx, n, row)
+		iter, err = b.buildShowBinlogStatus(ctx, n, row)
 	case *plan.ShowReplicaStatus:
-		return b.buildShowReplicaStatus(ctx, n, row)
+		iter, err = b.buildShowReplicaStatus(ctx, n, row)
 	case *plan.UpdateSource:
-		return b.buildUpdateSource(ctx, n, row)
+		iter, err = b.buildUpdateSource(ctx, n, row)
 	case plan.ElseCaseError:
-		return b.buildElseCaseError(ctx, n, row)
+		iter, err = b.buildElseCaseError(ctx, n, row)
 	case *plan.PrepareQuery:
-		return b.buildPrepareQuery(ctx, n, row)
+		iter, err = b.buildPrepareQuery(ctx, n, row)
 	case *plan.ResolvedTable:
-		return b.buildResolvedTable(ctx, n, row)
+		iter, err = b.buildResolvedTable(ctx, n, row)
 	case *plan.TableCountLookup:
-		return b.buildTableCount(ctx, n, row)
+		iter, err = b.buildTableCount(ctx, n, row)
 	case *plan.ShowCreateTable:
-		return b.buildShowCreateTable(ctx, n, row)
+		iter, err = b.buildShowCreateTable(ctx, n, row)
 	case *plan.ShowIndexes:
-		return b.buildShowIndexes(ctx, n, row)
+		iter, err = b.buildShowIndexes(ctx, n, row)
 	case *plan.PrependNode:
-		return b.buildPrependNode(ctx, n, row)
+		iter, err = b.buildPrependNode(ctx, n, row)
 	case *plan.UnresolvedTable:
-		return b.buildUnresolvedTable(ctx, n, row)
+		iter, err = b.buildUnresolvedTable(ctx, n, row)
 	case *plan.Use:
-		return b.buildUse(ctx, n, row)
+		iter, err = b.buildUse(ctx, n, row)
 	case *plan.CreateTable:
-		return b.buildCreateTable(ctx, n, row)
+		iter, err = b.buildCreateTable(ctx, n, row)
 	case *plan.CreateProcedure:
-		return b.buildCreateProcedure(ctx, n, row)
+		iter, err = b.buildCreateProcedure(ctx, n, row)
 	case *plan.CreateTrigger:
-		return b.buildCreateTrigger(ctx, n, row)
+		iter, err = b.buildCreateTrigger(ctx, n, row)
 	case *plan.IfConditional:
-		return b.buildIfConditional(ctx, n, row)
+		iter, err = b.buildIfConditional(ctx, n, row)
 	case *plan.ShowGrants:
-		return b.buildShowGrants(ctx, n, row)
+		iter, err = b.buildShowGrants(ctx, n, row)
 	case *plan.ShowDatabases:
-		return b.buildShowDatabases(ctx, n, row)
+		iter, err = b.buildShowDatabases(ctx, n, row)
 	case *plan.UpdateJoin:
-		return b.buildUpdateJoin(ctx, n, row)
+		iter, err = b.buildUpdateJoin(ctx, n, row)
 	case *plan.Call:
-		return b.buildCall(ctx, n, row)
+		iter, err = b.buildCall(ctx, n, row)
 	case *plan.Close:
-		return b.buildClose(ctx, n, row)
+		iter, err = b.buildClose(ctx, n, row)
 	case *plan.Describe:
-		return b.buildDescribe(ctx, n, row)
+		iter, err = b.buildDescribe(ctx, n, row)
 	case *plan.ExecuteQuery:
-		return b.buildExecuteQuery(ctx, n, row)
+		iter, err = b.buildExecuteQuery(ctx, n, row)
 	case *plan.ProcedureResolvedTable:
-		return b.buildProcedureResolvedTable(ctx, n, row)
+		iter, err = b.buildProcedureResolvedTable(ctx, n, row)
 	case *plan.ShowTriggers:
-		return b.buildShowTriggers(ctx, n, row)
+		iter, err = b.buildShowTriggers(ctx, n, row)
 	case *plan.BeginEndBlock:
-		return b.buildBeginEndBlock(ctx, n, row)
+		iter, err = b.buildBeginEndBlock(ctx, n, row)
 	case *plan.AlterDB:
-		return b.buildAlterDB(ctx, n, row)
+		iter, err = b.buildAlterDB(ctx, n, row)
 	case *plan.Grant:
-		return b.buildGrant(ctx, n, row)
+		iter, err = b.buildGrant(ctx, n, row)
 	case *plan.Open:
-		return b.buildOpen(ctx, n, row)
+		iter, err = b.buildOpen(ctx, n, row)
 	case *plan.ChangeReplicationFilter:
-		return b.buildChangeReplicationFilter(ctx, n, row)
+		iter, err = b.buildChangeReplicationFilter(ctx, n, row)
 	case *plan.StopReplica:
-		return b.buildStopReplica(ctx, n, row)
+		iter, err = b.buildStopReplica(ctx, n, row)
 	case *plan.ShowVariables:
-		return b.buildShowVariables(ctx, n, row)
+		iter, err = b.buildShowVariables(ctx, n, row)
 	case *plan.Sort:
-		return b.buildSort(ctx, n, row)
+		iter, err = b.buildSort(ctx, n, row)
 	case *plan.SubqueryAlias:
-		return b.buildSubqueryAlias(ctx, n, row)
+		iter, err = b.buildSubqueryAlias(ctx, n, row)
 	case *plan.SetOp:
-		return b.buildSetOp(ctx, n, row)
+		iter, err = b.buildSetOp(ctx, n, row)
 	case *plan.IndexedTableAccess:
-		return b.buildIndexedTableAccess(ctx, n, row)
+		iter, err = b.buildIndexedTableAccess(ctx, n, row)
 	case *plan.TableAlias:
-		return b.buildTableAlias(ctx, n, row)
+		iter, err = b.buildTableAlias(ctx, n, row)
 	case *plan.AddColumn:
-		return b.buildAddColumn(ctx, n, row)
+		iter, err = b.buildAddColumn(ctx, n, row)
 	case *plan.RenameColumn:
-		return b.buildRenameColumn(ctx, n, row)
+		iter, err = b.buildRenameColumn(ctx, n, row)
 	case *plan.DropDB:
-		return b.buildDropDB(ctx, n, row)
+		iter, err = b.buildDropDB(ctx, n, row)
 	case *plan.Distinct:
-		return b.buildDistinct(ctx, n, row)
+		iter, err = b.buildDistinct(ctx, n, row)
 	case *plan.Having:
-		return b.buildHaving(ctx, n, row)
+		iter, err = b.buildHaving(ctx, n, row)
 	case *plan.Signal:
-		return b.buildSignal(ctx, n, row)
+		iter, err = b.buildSignal(ctx, n, row)
 	case *plan.TriggerRollback:
-		return b.buildTriggerRollback(ctx, n, row)
+		iter, err = b.buildTriggerRollback(ctx, n, row)
 	case *plan.ExternalProcedure:
-		return b.buildExternalProcedure(ctx, n, row)
+		iter, err = b.buildExternalProcedure(ctx, n, row)
 	case *plan.Into:
-		return b.buildInto(ctx, n, row)
+		iter, err = b.buildInto(ctx, n, row)
 	case *plan.LockTables:
-		return b.buildLockTables(ctx, n, row)
+		iter, err = b.buildLockTables(ctx, n, row)
 	case *plan.Truncate:
-		return b.buildTruncate(ctx, n, row)
+		iter, err = b.buildTruncate(ctx, n, row)
 	case *plan.DeclareHandler:
-		return b.buildDeclareHandler(ctx, n, row)
+		iter, err = b.buildDeclareHandler(ctx, n, row)
 	case *plan.DropProcedure:
-		return b.buildDropProcedure(ctx, n, row)
+		iter, err = b.buildDropProcedure(ctx, n, row)
 	case *plan.ChangeReplicationSource:
-		return b.buildChangeReplicationSource(ctx, n, row)
+		iter, err = b.buildChangeReplicationSource(ctx, n, row)
 	case *plan.Max1Row:
-		return b.buildMax1Row(ctx, n, row)
+		iter, err = b.buildMax1Row(ctx, n, row)
 	case *plan.Rollback:
-		return b.buildRollback(ctx, n, row)
+		iter, err = b.buildRollback(ctx, n, row)
 	case *plan.Limit:
-		return b.buildLimit(ctx, n, row)
+		iter, err = b.buildLimit(ctx, n, row)
 	case *plan.RecursiveCte:
-		return b.buildRecursiveCte(ctx, n, row)
+		iter, err = b.buildRecursiveCte(ctx, n, row)
 	case *plan.ShowColumns:
-		return b.buildShowColumns(ctx, n, row)
+		iter, err = b.buildShowColumns(ctx, n, row)
 	case *plan.ShowTables:
-		return b.buildShowTables(ctx, n, row)
+		iter, err = b.buildShowTables(ctx, n, row)
 	case *plan.ShowCreateDatabase:
-		return b.buildShowCreateDatabase(ctx, n, row)
+		iter, err = b.buildShowCreateDatabase(ctx, n, row)
 	case *plan.DropIndex:
-		return b.buildDropIndex(ctx, n, row)
+		iter, err = b.buildDropIndex(ctx, n, row)
 	case *plan.ResetReplica:
-		return b.buildResetReplica(ctx, n, row)
+		iter, err = b.buildResetReplica(ctx, n, row)
 	case *plan.ShowCreateTrigger:
-		return b.buildShowCreateTrigger(ctx, n, row)
+		iter, err = b.buildShowCreateTrigger(ctx, n, row)
 	case *plan.TableCopier:
-		return b.buildTableCopier(ctx, n, row)
+		iter, err = b.buildTableCopier(ctx, n, row)
 	case *plan.DeclareVariables:
-		return b.buildDeclareVariables(ctx, n, row)
+		iter, err = b.buildDeclareVariables(ctx, n, row)
 	case *plan.Filter:
-		return b.buildFilter(ctx, n, row)
+		iter, err = b.buildFilter(ctx, n, row)
 	case *plan.Kill:
-		return b.buildKill(ctx, n, row)
+		iter, err = b.buildKill(ctx, n, row)
 	case *plan.ShowPrivileges:
-		return b.buildShowPrivileges(ctx, n, row)
+		iter, err = b.buildShowPrivileges(ctx, n, row)
 	case *plan.AlterPK:
-		return b.buildAlterPK(ctx, n, row)
+		iter, err = b.buildAlterPK(ctx, n, row)
 	case plan.Nothing:
-		return b.buildNothing(ctx, n, row)
+		iter, err = b.buildNothing(ctx, n, row)
 	case *plan.RevokeAll:
-		return b.buildRevokeAll(ctx, n, row)
+		iter, err = b.buildRevokeAll(ctx, n, row)
 	case *plan.DeferredAsOfTable:
-		return b.buildDeferredAsOfTable(ctx, n, row)
+		iter, err = b.buildDeferredAsOfTable(ctx, n, row)
 	case *plan.CreateUser:
-		return b.buildCreateUser(ctx, n, row)
+		iter, err = b.buildCreateUser(ctx, n, row)
 	case *plan.AlterUser:
-		return b.buildAlterUser(ctx, n, row)
+		iter, err = b.buildAlterUser(ctx, n, row)
 	case *plan.DropView:
-		return b.buildDropView(ctx, n, row)
+		iter, err = b.buildDropView(ctx, n, row)
 	case *plan.GroupBy:
-		return b.buildGroupBy(ctx, n, row)
+		iter, err = b.buildGroupBy(ctx, n, row)
 	case *plan.RowUpdateAccumulator:
-		return b.buildRowUpdateAccumulator(ctx, n, row)
+		iter, err = b.buildRowUpdateAccumulator(ctx, n, row)
 	case *plan.Block:
-		return b.buildBlock(ctx, n, row)
+		iter, err = b.buildBlock(ctx, n, row)
 	case *plan.InsertDestination:
-		return b.buildInsertDestination(ctx, n, row)
+		iter, err = b.buildInsertDestination(ctx, n, row)
 	case *plan.Set:
-		return b.buildSet(ctx, n, row)
+		iter, err = b.buildSet(ctx, n, row)
 	case *plan.TriggerExecutor:
-		return b.buildTriggerExecutor(ctx, n, row)
+		iter, err = b.buildTriggerExecutor(ctx, n, row)
 	case *plan.AlterDefaultDrop:
-		return b.buildAlterDefaultDrop(ctx, n, row)
+		iter, err = b.buildAlterDefaultDrop(ctx, n, row)
 	case *plan.CachedResults:
-		return b.buildCachedResults(ctx, n, row)
+		iter, err = b.buildCachedResults(ctx, n, row)
 	case *plan.CreateDB:
-		return b.buildCreateDB(ctx, n, row)
+		iter, err = b.buildCreateDB(ctx, n, row)
 	case *plan.CreateSchema:
-		return b.buildCreateSchema(ctx, n, row)
+		iter, err = b.buildCreateSchema(ctx, n, row)
 	case *plan.Revoke:
-		return b.buildRevoke(ctx, n, row)
+		iter, err = b.buildRevoke(ctx, n, row)
 	case *plan.DeclareCondition:
-		return b.buildDeclareCondition(ctx, n, row)
+		iter, err = b.buildDeclareCondition(ctx, n, row)
 	case *plan.TriggerBeginEndBlock:
-		return b.buildTriggerBeginEndBlock(ctx, n, row)
+		iter, err = b.buildTriggerBeginEndBlock(ctx, n, row)
 	case *plan.RecursiveTable:
-		return b.buildRecursiveTable(ctx, n, row)
+		iter, err = b.buildRecursiveTable(ctx, n, row)
 	case *plan.AlterIndex:
-		return b.buildAlterIndex(ctx, n, row)
+		iter, err = b.buildAlterIndex(ctx, n, row)
 	case *plan.TransformedNamedNode:
-		return b.buildTransformedNamedNode(ctx, n, row)
+		iter, err = b.buildTransformedNamedNode(ctx, n, row)
 	case *plan.CreateIndex:
-		return b.buildCreateIndex(ctx, n, row)
+		iter, err = b.buildCreateIndex(ctx, n, row)
 	case *plan.Procedure:
-		return b.buildProcedure(ctx, n, row)
+		iter, err = b.buildProcedure(ctx, n, row)
 	case *plan.NoopTriggerRollback:
-		return b.buildNoopTriggerRollback(ctx, n, row)
+		iter, err = b.buildNoopTriggerRollback(ctx, n, row)
 	case *plan.With:
-		return b.buildWith(ctx, n, row)
+		iter, err = b.buildWith(ctx, n, row)
 	case *plan.Project:
-		return b.buildProject(ctx, n, row)
+		iter, err = b.buildProject(ctx, n, row)
 	case *plan.ModifyColumn:
-		return b.buildModifyColumn(ctx, n, row)
+		iter, err = b.buildModifyColumn(ctx, n, row)
 	case *plan.DeclareCursor:
-		return b.buildDeclareCursor(ctx, n, row)
+		iter, err = b.buildDeclareCursor(ctx, n, row)
 	case *plan.OrderedDistinct:
-		return b.buildOrderedDistinct(ctx, n, row)
+		iter, err = b.buildOrderedDistinct(ctx, n, row)
 	case *plan.SingleDropView:
-		return b.buildSingleDropView(ctx, n, row)
+		iter, err = b.buildSingleDropView(ctx, n, row)
 	case *plan.EmptyTable:
-		return b.buildEmptyTable(ctx, n, row)
+		iter, err = b.buildEmptyTable(ctx, n, row)
 	case *plan.JoinNode:
-		return b.buildJoinNode(ctx, n, row)
+		iter, err = b.buildJoinNode(ctx, n, row)
 	case *plan.RenameUser:
-		return b.buildRenameUser(ctx, n, row)
+		iter, err = b.buildRenameUser(ctx, n, row)
 	case *plan.ShowCreateProcedure:
-		return b.buildShowCreateProcedure(ctx, n, row)
+		iter, err = b.buildShowCreateProcedure(ctx, n, row)
 	case *plan.Commit:
-		return b.buildCommit(ctx, n, row)
+		iter, err = b.buildCommit(ctx, n, row)
 	case *plan.DeferredFilteredTable:
-		return b.buildDeferredFilteredTable(ctx, n, row)
+		iter, err = b.buildDeferredFilteredTable(ctx, n, row)
 	case *plan.Values:
-		return b.buildValues(ctx, n, row)
+		iter, err = b.buildValues(ctx, n, row)
 	case *plan.DropRole:
-		return b.buildDropRole(ctx, n, row)
+		iter, err = b.buildDropRole(ctx, n, row)
 	case *plan.Fetch:
-		return b.buildFetch(ctx, n, row)
+		iter, err = b.buildFetch(ctx, n, row)
 	case *plan.RevokeRole:
-		return b.buildRevokeRole(ctx, n, row)
+		iter, err = b.buildRevokeRole(ctx, n, row)
 	case *plan.ShowStatus:
-		return b.buildShowStatus(ctx, n, row)
+		iter, err = b.buildShowStatus(ctx, n, row)
 	case *plan.ShowTableStatus:
-		return b.buildShowTableStatus(ctx, n, row)
+		iter, err = b.buildShowTableStatus(ctx, n, row)
 	case *plan.ShowCreateEvent:
-		return b.buildShowCreateEvent(ctx, n, row)
+		iter, err = b.buildShowCreateEvent(ctx, n, row)
 	case *plan.SignalName:
-		return b.buildSignalName(ctx, n, row)
+		iter, err = b.buildSignalName(ctx, n, row)
 	case *plan.StartTransaction:
-		return b.buildStartTransaction(ctx, n, row)
+		iter, err = b.buildStartTransaction(ctx, n, row)
 	case *plan.ValueDerivedTable:
-		return b.buildValueDerivedTable(ctx, n, row)
+		iter, err = b.buildValueDerivedTable(ctx, n, row)
 	case *plan.CreateView:
-		return b.buildCreateView(ctx, n, row)
+		iter, err = b.buildCreateView(ctx, n, row)
 	case *plan.InsertInto:
-		return b.buildInsertInto(ctx, n, row)
+		iter, err = b.buildInsertInto(ctx, n, row)
 	case *plan.TopN:
-		return b.buildTopN(ctx, n, row)
+		iter, err = b.buildTopN(ctx, n, row)
 	case *plan.Window:
-		return b.buildWindow(ctx, n, row)
+		iter, err = b.buildWindow(ctx, n, row)
 	case *plan.DropCheck:
-		return b.buildDropCheck(ctx, n, row)
+		iter, err = b.buildDropCheck(ctx, n, row)
 	case *plan.DropTrigger:
-		return b.buildDropTrigger(ctx, n, row)
+		iter, err = b.buildDropTrigger(ctx, n, row)
 	case *plan.DeallocateQuery:
-		return b.buildDeallocateQuery(ctx, n, row)
+		iter, err = b.buildDeallocateQuery(ctx, n, row)
 	case *plan.RollbackSavepoint:
-		return b.buildRollbackSavepoint(ctx, n, row)
+		iter, err = b.buildRollbackSavepoint(ctx, n, row)
 	case *plan.ReleaseSavepoint:
-		return b.buildReleaseSavepoint(ctx, n, row)
+		iter, err = b.buildReleaseSavepoint(ctx, n, row)
 	case *plan.Update:
-		return b.buildUpdate(ctx, n, row)
+		iter, err = b.buildUpdate(ctx, n, row)
 	case plan.ShowWarnings:
-		return b.buildShowWarnings(ctx, n, row)
+		iter, err = b.buildShowWarnings(ctx, n, row)
 	case *plan.Releaser:
-		return b.buildReleaser(ctx, n, row)
+		iter, err = b.buildReleaser(ctx, n, row)
 	case *plan.Concat:
-		return b.buildConcat(ctx, n, row)
+		iter, err = b.buildConcat(ctx, n, row)
 	case *plan.DeleteFrom:
-		return b.buildDeleteFrom(ctx, n, row)
+		iter, err = b.buildDeleteFrom(ctx, n, row)
 	case *plan.DescribeQuery:
-		return b.buildDescribeQuery(ctx, n, row)
+		iter, err = b.buildDescribeQuery(ctx, n, row)
 	case *plan.ForeignKeyHandler:
-		return b.buildForeignKeyHandler(ctx, n, row)
+		iter, err = b.buildForeignKeyHandler(ctx, n, row)
 	case *plan.LoadData:
-		return b.buildLoadData(ctx, n, row)
+		iter, err = b.buildLoadData(ctx, n, row)
 	case *plan.ShowCharset:
-		return b.buildShowCharset(ctx, n, row)
+		iter, err = b.buildShowCharset(ctx, n, row)
 	case *plan.StripRowNode:
-		return b.buildStripRowNode(ctx, n, row)
+		iter, err = b.buildStripRowNode(ctx, n, row)
 	case *plan.DropConstraint:
-		return b.buildDropConstraint(ctx, n, row)
+		iter, err = b.buildDropConstraint(ctx, n, row)
 	case *plan.FlushPrivileges:
-		return b.buildFlushPrivileges(ctx, n, row)
+		iter, err = b.buildFlushPrivileges(ctx, n, row)
 	case *plan.Leave:
-		return b.buildLeave(ctx, n, row)
+		iter, err = b.buildLeave(ctx, n, row)
 	case *plan.While:
-		return b.buildWhile(ctx, n, row)
+		iter, err = b.buildWhile(ctx, n, row)
 	case *plan.ShowProcessList:
-		return b.buildShowProcessList(ctx, n, row)
+		iter, err = b.buildShowProcessList(ctx, n, row)
 	case *plan.CreateSavepoint:
-		return b.buildCreateSavepoint(ctx, n, row)
+		iter, err = b.buildCreateSavepoint(ctx, n, row)
 	case *plan.CreateCheck:
-		return b.buildCreateCheck(ctx, n, row)
+		iter, err = b.buildCreateCheck(ctx, n, row)
 	case *plan.AlterDefaultSet:
-		return b.buildAlterDefaultSet(ctx, n, row)
+		iter, err = b.buildAlterDefaultSet(ctx, n, row)
 	case *plan.DropUser:
-		return b.buildDropUser(ctx, n, row)
+		iter, err = b.buildDropUser(ctx, n, row)
 	case *plan.IfElseBlock:
-		return b.buildIfElseBlock(ctx, n, row)
+		iter, err = b.buildIfElseBlock(ctx, n, row)
 	case *plan.NamedWindows:
-		return b.buildNamedWindows(ctx, n, row)
+		iter, err = b.buildNamedWindows(ctx, n, row)
 	case *plan.Repeat:
-		return b.buildRepeat(ctx, n, row)
+		iter, err = b.buildRepeat(ctx, n, row)
 	case *plan.RevokeProxy:
-		return b.buildRevokeProxy(ctx, n, row)
+		iter, err = b.buildRevokeProxy(ctx, n, row)
 	case *plan.RenameTable:
-		return b.buildRenameTable(ctx, n, row)
+		iter, err = b.buildRenameTable(ctx, n, row)
 	case *plan.CaseStatement:
-		return b.buildCaseStatement(ctx, n, row)
+		iter, err = b.buildCaseStatement(ctx, n, row)
 	case *plan.GrantRole:
-		return b.buildGrantRole(ctx, n, row)
+		iter, err = b.buildGrantRole(ctx, n, row)
 	case *plan.GrantProxy:
-		return b.buildGrantProxy(ctx, n, row)
+		iter, err = b.buildGrantProxy(ctx, n, row)
 	case *plan.Offset:
-		return b.buildOffset(ctx, n, row)
+		iter, err = b.buildOffset(ctx, n, row)
 	case *plan.StartReplica:
-		return b.buildStartReplica(ctx, n, row)
+		iter, err = b.buildStartReplica(ctx, n, row)
 	case *plan.AlterAutoIncrement:
-		return b.buildAlterAutoIncrement(ctx, n, row)
+		iter, err = b.buildAlterAutoIncrement(ctx, n, row)
 	case *plan.DropForeignKey:
-		return b.buildDropForeignKey(ctx, n, row)
+		iter, err = b.buildDropForeignKey(ctx, n, row)
 	case *plan.DropTable:
-		return b.buildDropTable(ctx, n, row)
+		iter, err = b.buildDropTable(ctx, n, row)
 	case *plan.JSONTable:
-		return b.buildJSONTable(ctx, n, row)
+		iter, err = b.buildJSONTable(ctx, n, row)
 	case *plan.UnlockTables:
-		return b.buildUnlockTables(ctx, n, row)
+		iter, err = b.buildUnlockTables(ctx, n, row)
 	case *plan.Exchange:
-		return b.buildExchange(ctx, n, row)
+		iter, err = b.buildExchange(ctx, n, row)
 	case *plan.ExchangePartition:
-		return b.buildExchangePartition(ctx, n, row)
+		iter, err = b.buildExchangePartition(ctx, n, row)
 	case *plan.HashLookup:
-		return b.buildHashLookup(ctx, n, row)
+		iter, err = b.buildHashLookup(ctx, n, row)
 	case *plan.Iterate:
-		return b.buildIterate(ctx, n, row)
+		iter, err = b.buildIterate(ctx, n, row)
 	case sql.ExecSourceRel:
 		// escape hatch for custom data sources
-		return n.RowIter(ctx, row)
+		iter, err = n.RowIter(ctx, row)
 	case *plan.CreateSpatialRefSys:
-		return b.buildCreateSpatialRefSys(ctx, n, row)
+		iter, err = b.buildCreateSpatialRefSys(ctx, n, row)
 	case *plan.RenameForeignKey:
-		return b.buildRenameForeignKey(ctx, n, row)
+		iter, err = b.buildRenameForeignKey(ctx, n, row)
 	default:
 		return nil, fmt.Errorf("exec builder found unknown Node type %T", n)
 	}
+	iter = b.indexer.PostVisit(iter)
+	return iter, err
 }

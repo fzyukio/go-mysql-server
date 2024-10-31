@@ -85,7 +85,7 @@ func TestInsertIgnoreConversions(t *testing.T) {
 				expression.NewLiteral(tc.value, tc.valueType),
 			}}), false, []string{"c1"}, []sql.Expression{}, true)
 
-			ri, err := DefaultBuilder.Build(ctx, insertPlan, nil)
+			ri, err := DefaultBuilder.Build(ctx, insertPlan, nil, nil)
 			require.NoError(t, err)
 
 			err := ri.Next(ctx, nil)

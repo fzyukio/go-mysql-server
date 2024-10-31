@@ -80,6 +80,12 @@ func (b *BaseBuilder) buildValueDerivedTable(ctx *sql.Context, n *plan.ValueDeri
 }
 
 func (b *BaseBuilder) buildValues(ctx *sql.Context, n *plan.Values, row sql.LazyRow) (sql.RowIter, error) {
+	nn, err := b.indexer.PreVisit(n)
+	if err != nil {
+		return nil, err
+	}
+	n = nn.(*plan.Values)
+
 	rows := make([]sql.Row, len(n.ExpressionTuples))
 	for i, et := range n.ExpressionTuples {
 		vals := sql.NewSqlRow(len(et))
@@ -255,7 +261,7 @@ func (b *BaseBuilder) buildTableAlias(ctx *sql.Context, n *plan.TableAlias, row 
 
 	span, ctx := ctx.Span("sql.TableAlias", trace.WithAttributes(attribute.String("table", table)))
 
-	iter, err := b.Build(ctx, n.Child, row)
+	iter, err := b.Build(ctx, n.Child, row, nil)
 	if err != nil {
 		span.End()
 		return nil, err
@@ -311,6 +317,12 @@ func (b *BaseBuilder) buildProject(ctx *sql.Context, n *plan.Project, row sql.La
 		span.End()
 		return nil, err
 	}
+
+	nn, err := b.indexer.PreVisit(n)
+	if err != nil {
+		return nil, err
+	}
+	n = nn.(*plan.Project)
 
 	return sql.NewSpanIter(span, &ProjectIter{
 		projs:     n.Projections,
@@ -419,6 +431,11 @@ func (b *BaseBuilder) buildFilter(ctx *sql.Context, n *plan.Filter, row sql.Lazy
 		span.End()
 		return nil, err
 	}
+	nn, err := b.indexer.PreVisit(n)
+	if err != nil {
+		return nil, err
+	}
+	n = nn.(*plan.Filter)
 
 	return sql.NewSpanIter(span, plan.NewFilterIter(n.Expression, i)), nil
 }
@@ -769,6 +786,12 @@ func (b *BaseBuilder) buildDistinct(ctx *sql.Context, n *plan.Distinct, row sql.
 func (b *BaseBuilder) buildIndexedTableAccess(ctx *sql.Context, n *plan.IndexedTableAccess, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.IndexedTableAccess")
 
+	nn, err := b.indexer.PreVisit(n)
+	if err != nil {
+		return nil, err
+	}
+	n = nn.(*plan.IndexedTableAccess)
+
 	lookup, err := n.GetLookup(ctx, row)
 	if err != nil {
 		return nil, err
@@ -905,6 +928,11 @@ func (b *BaseBuilder) buildPrepareQuery(ctx *sql.Context, n *plan.PrepareQuery, 
 
 func (b *BaseBuilder) buildResolvedTable(ctx *sql.Context, n *plan.ResolvedTable, row sql.LazyRow) (sql.RowIter, error) {
 	span, ctx := ctx.Span("plan.TableNode")
+	rt, err := b.indexer.PreVisit(n)
+	if err != nil {
+		return nil, err
+	}
+	n = rt.(*plan.ResolvedTable)
 
 	partitions, err := n.Table.Partitions(ctx)
 	if err != nil {

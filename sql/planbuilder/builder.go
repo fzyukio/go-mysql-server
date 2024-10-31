@@ -195,6 +195,9 @@ func (b *Builder) handleErr(err error) {
 }
 
 func (b *Builder) build(inScope *scope, stmt ast.Statement, query string) (outScope *scope) {
+	defer func() {
+		b.qFlags.MaxExprCnt = int(b.colId)
+	}()
 	return b.buildSubquery(inScope, stmt, query, query)
 }
 

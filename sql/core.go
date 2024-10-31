@@ -89,7 +89,7 @@ type Node interface {
 
 // NodeExecBuilder converts a sql.Node tree into a RowIter.
 type NodeExecBuilder interface {
-	Build(ctx *Context, n Node, r LazyRow) (RowIter, error)
+	Build(ctx *Context, n Node, r LazyRow, qFlags *QueryFlags) (RowIter, error)
 }
 
 // ExecSourceRel is a node that has no children and is directly

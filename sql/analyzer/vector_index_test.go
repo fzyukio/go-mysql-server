@@ -123,7 +123,7 @@ func TestVectorIndex(t *testing.T) {
 				strings.TrimSpace(res.String()),
 				"expected:\n%s,\nfound:\n%s\n", testCase.expectedPlan, res.String())
 
-			iter, err := rowexec.DefaultBuilder.Build(ctx, res, nil)
+			iter, err := rowexec.DefaultBuilder.Build(ctx, res, nil, nil)
 			require.NoError(t, err)
 			rows, err = sql.RowIterToRows(ctx, iter, 0)
 			require.NoError(t, err)

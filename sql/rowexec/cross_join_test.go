@@ -70,7 +70,7 @@ func TestCrossJoin(t *testing.T) {
 
 	require.Equal(resultSchema, j.Schema())
 
-	iter, err := DefaultBuilder.Build(ctx, j, nil)
+	iter, err := DefaultBuilder.Build(ctx, j, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 
@@ -131,7 +131,7 @@ func TestCrossJoin_Empty(t *testing.T) {
 		plan.NewResolvedTable(rtable, nil, nil),
 	)
 
-	iter, err := DefaultBuilder.Build(ctx, j, nil)
+	iter, err := DefaultBuilder.Build(ctx, j, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 
@@ -148,7 +148,7 @@ func TestCrossJoin_Empty(t *testing.T) {
 		plan.NewResolvedTable(rtable, nil, nil),
 	)
 
-	iter, err = DefaultBuilder.Build(ctx, j, nil)
+	iter, err = DefaultBuilder.Build(ctx, j, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 

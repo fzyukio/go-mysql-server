@@ -34,7 +34,7 @@ func TestShowVariables(t *testing.T) {
 	sv := plan.NewShowVariables(nil, false)
 	require.True(sv.Resolved())
 
-	it, err := DefaultBuilder.Build(ctx, sv, nil)
+	it, err := DefaultBuilder.Build(ctx, sv, nil, nil)
 	require.NoError(err)
 
 	vars := ctx.GetAllSessionVariables()
@@ -66,7 +66,7 @@ func TestShowVariablesWithLike(t *testing.T) {
 	err := context.SetSessionVariable(context, "select_into_buffer_size", int64(8192))
 	require.NoError(t, err)
 
-	it, err := DefaultBuilder.Build(context, sv, nil)
+	it, err := DefaultBuilder.Build(context, sv, nil, nil)
 	require.NoError(t, err)
 
 	rows, err := sql.RowIterToRows(context, it, 0)
@@ -86,7 +86,7 @@ func TestShowVariablesWithLike(t *testing.T) {
 	), true)
 	require.True(t, sv2.Resolved())
 
-	it2, err := DefaultBuilder.Build(context, sv2, nil)
+	it2, err := DefaultBuilder.Build(context, sv2, nil, nil)
 	require.NoError(t, err)
 
 	rows2, err := sql.RowIterToRows(context, it2, 0)
@@ -108,7 +108,7 @@ func TestShowVariablesWithWhere(t *testing.T) {
 	err := context.SetSessionVariable(context, "select_into_buffer_size", int64(8192))
 	require.NoError(t, err)
 
-	it, err := DefaultBuilder.Build(context, sv, nil)
+	it, err := DefaultBuilder.Build(context, sv, nil, nil)
 	require.NoError(t, err)
 
 	rows, err := sql.RowIterToRows(context, it, 0)

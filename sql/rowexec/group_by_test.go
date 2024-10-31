@@ -272,7 +272,7 @@ func BenchmarkGroupBy(b *testing.B) {
 
 			for i := 0; i < b.N; i++ {
 				ctx := sql.NewEmptyContext()
-				iter, err := DefaultBuilder.Build(ctx, node, nil)
+				iter, err := DefaultBuilder.Build(ctx, node, nil, nil)
 				require.NoError(err)
 
 				rows, err := sql.RowIterToRows(ctx, iter, 0)
@@ -329,7 +329,7 @@ func benchmarkTable(t testing.TB) sql.Table {
 func NodeToRows(ctx *sql.Context, n sql.Node) ([]sql.Row, error) {
 	// TODO can't have sql depend on rowexec
 	// move execution tests to rowexec
-	i, err := DefaultBuilder.Build(ctx, n, nil)
+	i, err := DefaultBuilder.Build(ctx, n, nil, nil)
 	if err != nil {
 		return nil, err
 	}

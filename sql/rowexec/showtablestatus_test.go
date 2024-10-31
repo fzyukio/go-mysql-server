@@ -44,7 +44,7 @@ func TestShowTableStatus(t *testing.T) {
 	node.Catalog = catalog
 
 	ctx.SetCurrentDatabase("a")
-	iter, err := DefaultBuilder.Build(ctx, node, nil)
+	iter, err := DefaultBuilder.Build(ctx, node, nil, nil)
 	require.NoError(err)
 
 	rows, err := sql.RowIterToRows(ctx, iter, 0)
@@ -59,7 +59,7 @@ func TestShowTableStatus(t *testing.T) {
 	node = plan.NewShowTableStatus(db2)
 	node.Catalog = catalog
 
-	iter, err = DefaultBuilder.Build(ctx, node, nil)
+	iter, err = DefaultBuilder.Build(ctx, node, nil, nil)
 	require.NoError(err)
 
 	rows, err = sql.RowIterToRows(ctx, iter, 0)

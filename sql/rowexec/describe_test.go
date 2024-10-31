@@ -38,7 +38,7 @@ func TestDescribe(t *testing.T) {
 	}), nil)
 
 	d := plan.NewDescribe(plan.NewResolvedTable(table, nil, nil))
-	iter, err := DefaultBuilder.Build(ctx, d, nil)
+	iter, err := DefaultBuilder.Build(ctx, d, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 
@@ -61,7 +61,7 @@ func TestDescribe_Empty(t *testing.T) {
 
 	d := plan.NewDescribe(plan.NewUnresolvedTable("test_table", ""))
 
-	iter, err := DefaultBuilder.Build(ctx, d, nil)
+	iter, err := DefaultBuilder.Build(ctx, d, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 
@@ -99,7 +99,7 @@ func TestDescribeQuery(t *testing.T) {
 	))
 
 	ctx := sql.NewEmptyContext()
-	iter, err := DefaultBuilder.Build(ctx, node, nil)
+	iter, err := DefaultBuilder.Build(ctx, node, nil, nil)
 	require.NoError(err)
 
 	rows, err := sql.RowIterToRows(ctx, iter, 0)

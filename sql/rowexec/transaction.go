@@ -303,7 +303,7 @@ func (b *BaseBuilder) buildUse(ctx *sql.Context, n *plan.Use, row sql.LazyRow) (
 }
 
 func (b *BaseBuilder) buildTransactionCommittingNode(ctx *sql.Context, n *plan.TransactionCommittingNode, row sql.LazyRow) (sql.RowIter, error) {
-	iter, err := b.Build(ctx, n.Child(), row)
+	iter, err := b.Build(ctx, n.Child(), row, nil)
 	if err != nil {
 		return nil, err
 	}

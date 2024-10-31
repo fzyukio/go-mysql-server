@@ -99,5 +99,6 @@ func (b *Builder) BindOnly(stmt ast.Statement, s string, queryFlags *sql.QueryFl
 		b.qFlags = queryFlags
 	}
 	outScope := b.build(nil, stmt, s)
+	b.qFlags.MaxExprCnt = int(b.colId)
 	return outScope.node, b.qFlags, err
 }

@@ -273,7 +273,7 @@ func TestShowProcessList(t *testing.T) {
 
 	n := plan.NewShowProcessList()
 
-	iter, err := rowexec.DefaultBuilder.Build(ctx, n, nil)
+	iter, err := rowexec.DefaultBuilder.Build(ctx, n, nil, nil)
 	require.NoError(err)
 	rows, err := sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
@@ -350,7 +350,7 @@ func TestTrackProcess(t *testing.T) {
 	_, ok = rhs.Table.(*plan.ProcessTable)
 	require.True(ok)
 
-	iter, err := rowexec.DefaultBuilder.Build(ctx, proc, nil)
+	iter, err := rowexec.DefaultBuilder.Build(ctx, proc, nil, nil)
 	require.NoError(err)
 	_, err = sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)
@@ -398,7 +398,7 @@ func TestLockTables(t *testing.T) {
 	})
 	node.Catalog = analyzer.NewCatalog(sql.NewDatabaseProvider())
 
-	_, err := rowexec.DefaultBuilder.Build(sql.NewEmptyContext(), node, nil)
+	_, err := rowexec.DefaultBuilder.Build(sql.NewEmptyContext(), node, nil, nil)
 
 	require.NoError(err)
 

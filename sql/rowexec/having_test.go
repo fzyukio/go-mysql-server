@@ -60,7 +60,7 @@ func TestHaving(t *testing.T) {
 
 	require.Equal(1, len(f.Children()))
 
-	iter, err := DefaultBuilder.Build(ctx, f, nil)
+	iter, err := DefaultBuilder.Build(ctx, f, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 
@@ -83,7 +83,7 @@ func TestHaving(t *testing.T) {
 		plan.NewResolvedTable(child, nil, nil),
 	)
 
-	iter, err = DefaultBuilder.Build(ctx, f, nil)
+	iter, err = DefaultBuilder.Build(ctx, f, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 
@@ -102,7 +102,7 @@ func TestHaving(t *testing.T) {
 		plan.NewResolvedTable(child, nil, nil),
 	)
 
-	iter, err = DefaultBuilder.Build(ctx, f, nil)
+	iter, err = DefaultBuilder.Build(ctx, f, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 

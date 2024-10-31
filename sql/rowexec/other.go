@@ -369,7 +369,7 @@ func (b *BaseBuilder) buildPrependNode(ctx *sql.Context, n *plan.PrependNode, ro
 }
 
 func (b *BaseBuilder) buildQueryProcess(ctx *sql.Context, n *plan.QueryProcess, row sql.LazyRow) (sql.RowIter, error) {
-	iter, err := b.Build(ctx, n.Child(), row)
+	iter, err := b.Build(ctx, n.Child(), row, nil)
 	if err != nil {
 		return nil, err
 	}

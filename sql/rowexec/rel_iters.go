@@ -128,6 +128,12 @@ type ProjectIter struct {
 	projs     []sql.Expression
 	canDefer  bool
 	childIter sql.RowIter
+	offset    int
+}
+
+func (i *ProjectIter) WithOffset(o int) sql.RowIter {
+	i.offset = o
+	return i
 }
 
 func (i *ProjectIter) Next(ctx *sql.Context, row sql.LazyRow) error {
@@ -135,7 +141,7 @@ func (i *ProjectIter) Next(ctx *sql.Context, row sql.LazyRow) error {
 	if err != nil {
 		return err
 	}
-	return ProjectRow(ctx, i.projs, row, row.Count())
+	return ProjectRow(ctx, i.projs, row, i.offset)
 }
 
 func (i *ProjectIter) Close(ctx *sql.Context) error {

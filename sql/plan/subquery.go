@@ -363,7 +363,7 @@ func (s *Subquery) evalMultiple(ctx *sql.Context, row sql.LazyRow) ([]sql.LazyRo
 		return nil, err
 	}
 
-	iter, err := s.b.Build(ctx, q, row)
+	iter, err := s.b.Build(ctx, q, row, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -450,7 +450,7 @@ func (s *Subquery) HasResultRow(ctx *sql.Context, row sql.LazyRow) (bool, error)
 		return false, err
 	}
 
-	iter, err := s.b.Build(ctx, q, row)
+	iter, err := s.b.Build(ctx, q, row, nil)
 	if err != nil {
 		return false, err
 	}

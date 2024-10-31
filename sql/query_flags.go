@@ -51,7 +51,8 @@ const (
 )
 
 type QueryFlags struct {
-	Flags FastIntSet
+	Flags      FastIntSet
+	MaxExprCnt int
 }
 
 func (qp *QueryFlags) Set(flag int) {

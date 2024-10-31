@@ -33,7 +33,7 @@ func TestShowStatus(t *testing.T) {
 	var res sql.Row
 	var err error
 	n := plan.NewShowStatus(true)
-	iter, err := DefaultBuilder.Build(ctx, n, nil)
+	iter, err := DefaultBuilder.Build(ctx, n, nil, nil)
 	require.NoError(err)
 
 	for {

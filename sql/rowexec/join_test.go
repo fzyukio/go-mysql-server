@@ -130,7 +130,7 @@ func TestInnerJoinEmpty(t *testing.T) {
 			expression.NewGetField(4, types.Text, "rcol1", false),
 		))
 
-	iter, err := DefaultBuilder.Build(ctx, j, nil)
+	iter, err := DefaultBuilder.Build(ctx, j, nil, nil)
 	require.NoError(err)
 
 	assertRows(t, ctx, iter, 0)
@@ -191,7 +191,7 @@ func BenchmarkInnerJoin(b *testing.B) {
 		require := require.New(b)
 
 		for i := 0; i < b.N; i++ {
-			iter, err := DefaultBuilder.Build(ctx, n1, nil)
+			iter, err := DefaultBuilder.Build(ctx, n1, nil, nil)
 			require.NoError(err)
 
 			rows, err := sql.RowIterToRows(ctx, iter, 0)
@@ -205,7 +205,7 @@ func BenchmarkInnerJoin(b *testing.B) {
 		require := require.New(b)
 
 		for i := 0; i < b.N; i++ {
-			iter, err := DefaultBuilder.Build(ctx, n1, nil)
+			iter, err := DefaultBuilder.Build(ctx, n1, nil, nil)
 			require.NoError(err)
 
 			rows, err := sql.RowIterToRows(ctx, iter, 0)
@@ -219,7 +219,7 @@ func BenchmarkInnerJoin(b *testing.B) {
 		require := require.New(b)
 
 		for i := 0; i < b.N; i++ {
-			iter, err := DefaultBuilder.Build(ctx, n2, nil)
+			iter, err := DefaultBuilder.Build(ctx, n2, nil, nil)
 			require.NoError(err)
 
 			rows, err := sql.RowIterToRows(ctx, iter, 0)
@@ -254,7 +254,7 @@ func TestLeftJoin(t *testing.T) {
 			expression.NewGetField(6, types.Text, "rcol3", false),
 		))
 
-	iter, err := DefaultBuilder.Build(ctx, j, nil)
+	iter, err := DefaultBuilder.Build(ctx, j, nil, nil)
 	require.NoError(err)
 	rows, err := sql.RowIterToRows(ctx, iter, 0)
 	require.NoError(err)

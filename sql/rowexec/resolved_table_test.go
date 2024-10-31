@@ -34,7 +34,7 @@ func TestResolvedTable(t *testing.T) {
 	require.NotNil(table)
 
 	ctx := sql.NewEmptyContext()
-	iter, err := DefaultBuilder.Build(ctx, table, nil)
+	iter, err := DefaultBuilder.Build(ctx, table, nil, nil)
 	require.NoError(err)
 
 	rows, err := sql.RowIterToRows(ctx, iter, 0)
@@ -60,7 +60,7 @@ func TestResolvedTableCancelled(t *testing.T) {
 	cancel()
 	ctx := sql.NewContext(octx)
 
-	iter, err := DefaultBuilder.Build(ctx, table, nil)
+	iter, err := DefaultBuilder.Build(ctx, table, nil, nil)
 	require.NoError(err)
 
 	err = iter.Next(ctx, nil)

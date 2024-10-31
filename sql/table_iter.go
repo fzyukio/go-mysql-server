@@ -24,6 +24,7 @@ type TableRowIter struct {
 	partitions PartitionIter
 	partition  Partition
 	rows       RowIter
+	offset     int
 }
 
 var _ RowIter = (*TableRowIter)(nil)
@@ -31,6 +32,13 @@ var _ RowIter = (*TableRowIter)(nil)
 // NewTableRowIter returns a new iterator over the rows in the partitions of the table given.
 func NewTableRowIter(ctx *Context, table Table, partitions PartitionIter) *TableRowIter {
 	return &TableRowIter{table: table, partitions: partitions}
+}
+
+func (i *TableRowIter) WithOffset(off int) RowIter {
+	if oi, ok := i.rows.(OffsetIter); ok {
+		i.rows = oi.WithOffset(off)
+	}
+	return i
 }
 
 func (i *TableRowIter) Next(ctx *Context, row LazyRow) error {

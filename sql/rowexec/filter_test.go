@@ -59,7 +59,7 @@ func TestFilter(t *testing.T) {
 
 	require.Equal(1, len(f.Children()))
 
-	iter, err := DefaultBuilder.Build(ctx, f, nil)
+	iter, err := DefaultBuilder.Build(ctx, f, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 
@@ -79,7 +79,7 @@ func TestFilter(t *testing.T) {
 		expression.NewLiteral(int32(1111),
 			types.Int32)), plan.NewResolvedTable(child, nil, nil))
 
-	iter, err = DefaultBuilder.Build(ctx, f, nil)
+	iter, err = DefaultBuilder.Build(ctx, f, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 
@@ -95,7 +95,7 @@ func TestFilter(t *testing.T) {
 		expression.NewLiteral(int64(4444), types.Int64)),
 		plan.NewResolvedTable(child, nil, nil))
 
-	iter, err = DefaultBuilder.Build(ctx, f, nil)
+	iter, err = DefaultBuilder.Build(ctx, f, nil, nil)
 	require.NoError(err)
 	require.NotNil(iter)
 

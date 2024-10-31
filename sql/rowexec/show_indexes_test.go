@@ -97,7 +97,7 @@ func TestShowIndexes(t *testing.T) {
 			showIdxs := NewShowIndexes(NewResolvedTable(test.table, nil, nil))
 			showIdxs.IndexesToShow = []sql.Index{idx}
 
-			rowIter, err := DefaultBuilder.Build(ctx, showIdxs, nil)
+			rowIter, err := DefaultBuilder.Build(ctx, showIdxs, nil, nil)
 			assert.NoError(t, err)
 
 			rows, err := sql.RowIterToRows(ctx, rowIter, 0)

@@ -188,6 +188,14 @@ func (p *GetField) WithIndex(n int) sql.Expression {
 	return &p2
 }
 
+func WithExecIndexReference(e *GetField, mapp map[sql.ColumnId]int) (sql.Expression, error) {
+	idx, ok := mapp[e.Id()]
+	if !ok {
+		return nil, fmt.Errorf("expression id out of bounds: %d", len(mapp))
+	}
+	return e.WithIndex(idx), nil
+}
+
 // WithBackTickNames returns a copy of this expression with the backtick names flag set to the given value.
 func (p *GetField) WithBackTickNames(backtick bool) *GetField {
 	p2 := *p

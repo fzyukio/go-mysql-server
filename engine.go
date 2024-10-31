@@ -437,7 +437,7 @@ func (e *Engine) QueryWithBindings(ctx *sql.Context, query string, parsed sqlpar
 		return nil, nil, nil, err
 	}
 
-	iter, err := e.Analyzer.ExecBuilder.Build(ctx, analyzed, sql.NewSqlRow(0))
+	iter, err := e.Analyzer.ExecBuilder.Build(ctx, analyzed, sql.NewSqlRow(0), qFlags)
 	if err != nil {
 		err2 := clearAutocommitTransaction(ctx)
 		if err2 != nil {
@@ -453,7 +453,7 @@ func (e *Engine) QueryWithBindings(ctx *sql.Context, query string, parsed sqlpar
 
 // PrepQueryPlanForExecution prepares a query plan for execution and returns the result schema with a row iterator to
 // begin spooling results
-func (e *Engine) PrepQueryPlanForExecution(ctx *sql.Context, _ string, plan sql.Node) (sql.Schema, sql.RowIter, *sql.QueryFlags, error) {
+func (e *Engine) PrepQueryPlanForExecution(ctx *sql.Context, _ string, plan sql.Node, qflags *sql.QueryFlags) (sql.Schema, sql.RowIter, *sql.QueryFlags, error) {
 	// Give the integrator a chance to reject the session before proceeding
 	// TODO: this check doesn't belong here
 	err := ctx.Session.ValidateSession(ctx)
@@ -471,7 +471,7 @@ func (e *Engine) PrepQueryPlanForExecution(ctx *sql.Context, _ string, plan sql.
 		return nil, nil, nil, err
 	}
 
-	iter, err := e.Analyzer.ExecBuilder.Build(ctx, plan, nil)
+	iter, err := e.Analyzer.ExecBuilder.Build(ctx, plan, nil, qflags)
 	if err != nil {
 		err2 := clearAutocommitTransaction(ctx)
 		if err2 != nil {
@@ -844,7 +844,7 @@ func (e *Engine) executeEvent(ctx *sql.Context, dbName, createEventStatement, us
 	definitionNode := createEventNode.DefinitionNode
 
 	// Build an iterator to execute the event body
-	iter, err := e.Analyzer.ExecBuilder.Build(ctx, definitionNode, nil)
+	iter, err := e.Analyzer.ExecBuilder.Build(ctx, definitionNode, nil, nil)
 	if err != nil {
 		clearAutocommitErr := clearAutocommitTransaction(ctx)
 		if clearAutocommitErr != nil {

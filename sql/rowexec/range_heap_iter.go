@@ -32,7 +32,7 @@ func newRangeHeapJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinN
 		attribute.String("right", rightName),
 	))
 
-	l, err := b.Build(ctx, j.Left(), row)
+	l, err := b.Build(ctx, j.Left(), row, nil)
 	if err != nil {
 		span.End()
 		return nil, err
@@ -202,7 +202,7 @@ func (iter *rangeHeapJoinIter) Close(ctx *sql.Context) (err error) {
 }
 
 func (iter *rangeHeapJoinIter) initializeHeap(ctx *sql.Context, builder sql.NodeExecBuilder, primaryRow sql.LazyRow) (err error) {
-	iter.childRowIter, err = builder.Build(ctx, iter.rangeHeapPlan.Child, primaryRow)
+	iter.childRowIter, err = builder.Build(ctx, iter.rangeHeapPlan.Child, primaryRow, nil)
 	if err != nil {
 		return err
 	}
