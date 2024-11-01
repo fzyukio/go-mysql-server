@@ -15,7 +15,6 @@
 package planbuilder
 
 import (
-	"fmt"
 	"strings"
 
 	ast "github.com/dolthub/vitess/go/vt/sqlparser"
@@ -284,6 +283,7 @@ func (s *scope) setTableAlias(t string) {
 			oldTable = s.cols[i].table
 		}
 		s.cols[i].table = t
+		s.cols[i].str = s.b.cat.GetColumnIntern().Get(t, s.cols[i].col).Str
 		id, ok := s.getExpr(beforeColStr, true)
 		if ok {
 			// todo better way to do projections
@@ -323,6 +323,7 @@ func (s *scope) setColAlias(cols []string) {
 	for i := range s.cols {
 		name := strings.ToLower(cols[i])
 		s.cols[i].col = name
+		s.cols[i].str = s.b.cat.GetColumnIntern().Get(s.cols[i].table, name).Str
 		s.exprs[s.cols[i].String()] = ids[i]
 	}
 }
@@ -485,12 +486,21 @@ func (s *scope) redirect(from, to scopeColumn) {
 // todo: new IR should absorb interning and use bitmaps for
 // column identity
 func (s *scope) addColumn(col scopeColumn) {
+	var str string
+	if s.b.cat != nil {
+		str = s.b.cat.GetColumnIntern().Get(col.table, col.col).Str
+	} else if col.table == "" {
+		str = col.table
+	} else {
+		str = col.table + "." + col.col
+	}
+	col.str = str
 	s.cols = append(s.cols, col)
 	s.colset.Add(sql.ColumnId(col.id))
 	if s.exprs == nil {
 		s.exprs = make(map[string]columnId)
 	}
-	s.exprs[strings.ToLower(col.String())] = col.id
+	s.exprs[col.str] = col.id
 	return
 }
 
@@ -585,6 +595,7 @@ type scopeColumn struct {
 	table       string
 	col         string
 	originalCol string
+	str         string
 }
 
 // empty returns true if a scopeColumn is the null value
@@ -631,13 +642,13 @@ func (c scopeColumn) scalarGf() sql.Expression {
 	if c.originalCol != "" {
 		return expression.NewGetFieldWithTable(int(c.id), int(c.tableId), c.typ, c.db, c.table, c.originalCol, c.nullable)
 	}
-	return expression.NewGetFieldWithTable(int(c.id), int(c.tableId), c.typ, c.db, c.table, c.col, c.nullable)
+	return expression.NewGetFieldWithTableString(int(c.id), int(c.tableId), c.typ, c.db, c.table, c.col, c.str, c.nullable)
 }
 
 func (c scopeColumn) String() string {
 	if c.table == "" {
 		return c.col
 	} else {
-		return fmt.Sprintf("%s.%s", c.table, c.col)
+		return c.str
 	}
 }

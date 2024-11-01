@@ -21,13 +21,19 @@ import (
 )
 
 type Catalog struct {
-	provider sql.DatabaseProvider
+	provider  sql.DatabaseProvider
+	ColIntern *sql.ColumnInterner
+}
+
+func (c *Catalog) GetColumnIntern() *sql.ColumnInterner {
+	return c.ColIntern
 }
 
 // NewCatalog returns a new empty Catalog with the given provider
 func NewCatalog(provider sql.DatabaseProvider) sql.Catalog {
 	return &Catalog{
-		provider: provider,
+		provider:  provider,
+		ColIntern: sql.NewColumnInterner(),
 	}
 }
 

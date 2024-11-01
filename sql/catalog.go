@@ -44,6 +44,8 @@ type Catalog interface {
 
 	// UnlockTables unlocks all tables locked by the session id given
 	UnlockTables(ctx *Context, id uint32) error
+
+	GetColumnIntern() *ColumnInterner
 }
 
 // CatalogTable is a Table that depends on a Catalog.

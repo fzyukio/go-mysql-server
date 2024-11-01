@@ -44,6 +44,8 @@ type Catalog struct {
 	// replication messages (e.g. "show replicas") and commands (e.g. COM_REGISTER_REPLICA).
 	BinlogPrimaryController binlogreplication.BinlogPrimaryController
 
+	ColumnInterner *sql.ColumnInterner
+
 	mu    sync.RWMutex
 	locks sessionLocks
 }
@@ -71,7 +73,12 @@ func NewCatalog(provider sql.DatabaseProvider) *Catalog {
 		builtInFunctions: function.NewRegistry(),
 		StatsProvider:    memory.NewStatsProv(),
 		locks:            make(sessionLocks),
+		ColumnInterner:   sql.NewColumnInterner(),
 	}
+}
+
+func (c *Catalog) GetColumnIntern() *sql.ColumnInterner {
+	return c.ColumnInterner
 }
 
 func (c *Catalog) HasBinlogReplicaController() bool {

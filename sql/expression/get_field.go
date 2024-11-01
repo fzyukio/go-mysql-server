@@ -37,6 +37,7 @@ type GetField struct {
 	fieldType  sql.Type
 	fieldType2 sql.Type2
 	nullable   bool
+	str        string
 
 	backTickNames bool
 }
@@ -64,6 +65,23 @@ func NewGetFieldWithTable(index, tableId int, fieldType sql.Type, db, table, fie
 		nullable:   nullable,
 		exprId:     sql.ColumnId(index),
 		tableId:    sql.TableId(tableId),
+	}
+}
+
+// NewGetFieldWithTable creates a GetField expression with table name. The table name may be an alias.
+func NewGetFieldWithTableString(index, tableId int, fieldType sql.Type, db, table, fieldName, str string, nullable bool) *GetField {
+	fieldType2, _ := fieldType.(sql.Type2)
+	return &GetField{
+		db:         db,
+		table:      table,
+		fieldIndex: index,
+		fieldType:  fieldType,
+		fieldType2: fieldType2,
+		name:       fieldName,
+		nullable:   nullable,
+		exprId:     sql.ColumnId(index),
+		tableId:    sql.TableId(tableId),
+		str:        str,
 	}
 }
 
@@ -166,6 +184,9 @@ func (p *GetField) String() string {
 			return fmt.Sprintf("`%s`", p.name)
 		}
 		return p.name
+	}
+	if p.str != "" {
+		return p.str
 	}
 	return fmt.Sprintf("%s.%s", p.table, p.name)
 }

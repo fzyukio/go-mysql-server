@@ -9,6 +9,7 @@ type MapCatalog struct {
 	Funcs     map[string]Function
 	tabFuncs  map[string]TableFunction
 	Databases map[string]Database
+	Intern    *ColumnInterner
 }
 
 var _ Catalog = MapCatalog{}
@@ -16,6 +17,10 @@ var _ Catalog = MapCatalog{}
 func (t MapCatalog) WithTableFunctions(fns ...TableFunction) (TableFunctionProvider, error) {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (t MapCatalog) GetColumnIntern() *ColumnInterner {
+	return t.Intern
 }
 
 func (t MapCatalog) Function(ctx *Context, name string) (Function, bool) {

@@ -2551,6 +2551,7 @@ func newTestCatalog(db *memory.Database) *sql.MapCatalog {
 	cat := &sql.MapCatalog{
 		Databases: make(map[string]sql.Database),
 		Tables:    make(map[string]sql.Table),
+		Intern:    sql.NewColumnInterner(),
 	}
 
 	cat.Tables["xy"] = memory.NewTable(db, "xy", sql.NewPrimaryKeySchema(sql.Schema{
