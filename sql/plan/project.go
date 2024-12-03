@@ -96,9 +96,42 @@ func unwrapGetField(expr sql.Expression) *expression.GetField {
 
 // Schema implements the Node interface.
 func (p *Project) Schema() sql.Schema {
+	var childSchema sql.Schema
+
+	var (
+		lastNode  UnaryNode
+		lastChild sql.Node
+	)
+	lastNode = p.UnaryNode
+	lastChild = lastNode.Child
+
+	for {
+		switch lastChild.(type) {
+		case *GroupBy, *TransformedNamedNode, *Window, *HashLookup, *Truncate, *With, *Distinct,
+			*OrderedDistinct, *Describe,
+			*Update, *Offset, *ShowIndexes, *RangeHeap, *Sort, *TopN, *UpdateSource, *DropConstraint,
+			*NamedWindows, *Filter, *StripRowNode, *PrependNode, *UpdateJoin, *InsertDestination, *CreateView,
+			*SubqueryAlias, *Into, *Having, *ShowColumns, *CachedResults, *DeleteFrom, *DescribeQuery:
+			lastNode = lastChild.(*GroupBy).UnaryNode
+			lastChild = lastNode.Child
+		default:
+			childSchema = lastChild.Schema()
+			break
+		}
+		if childSchema != nil {
+			break
+		}
+	}
+
 	var s = make(sql.Schema, len(p.Projections))
 	for i, expr := range p.Projections {
-		s[i] = transform.ExpressionToColumn(expr, AliasSubqueryString(expr))
+		si := transform.ExpressionToColumn(expr, AliasSubqueryString(expr))
+		for _, csCol := range childSchema {
+			if si.Name == csCol.Name && si.Source == csCol.Source && si.DatabaseSource == csCol.DatabaseSource {
+				si.Comment = csCol.Comment
+			}
+		}
+		s[i] = si
 		if gf := unwrapGetField(expr); gf != nil {
 			s[i].Default = findDefault(p.Child, gf)
 		}
