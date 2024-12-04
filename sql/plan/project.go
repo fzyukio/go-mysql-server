@@ -107,12 +107,8 @@ func (p *Project) Schema() sql.Schema {
 
 	for {
 		switch lastChild.(type) {
-		case *GroupBy, *TransformedNamedNode, *Window, *HashLookup, *Truncate, *With, *Distinct,
-			*OrderedDistinct, *Describe,
-			*Update, *Offset, *ShowIndexes, *RangeHeap, *Sort, *TopN, *UpdateSource, *DropConstraint,
-			*NamedWindows, *Filter, *StripRowNode, *PrependNode, *UpdateJoin, *InsertDestination, *CreateView,
-			*SubqueryAlias, *Into, *Having, *ShowColumns, *CachedResults, *DeleteFrom, *DescribeQuery:
-			lastNode = lastChild.(*GroupBy).UnaryNode
+		case UnaryNoder:
+			lastNode = lastChild.(UnaryNoder).UnaryNode()
 			lastChild = lastNode.Child
 		default:
 			childSchema = lastChild.Schema()

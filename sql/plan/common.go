@@ -43,6 +43,15 @@ type UnaryNode struct {
 	Child sql.Node
 }
 
+type UnaryNoder interface {
+	UnaryNode() UnaryNode
+}
+
+// Implement UnaryNoder
+func (u UnaryNode) UnaryNode() UnaryNode {
+	return u
+}
+
 // Schema implements the Node interface.
 func (n *UnaryNode) Schema() sql.Schema {
 	return n.Child.Schema()
